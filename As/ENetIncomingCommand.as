@@ -21,8 +21,8 @@ package
 		/** @private */
 		internal var packet : ENetPacket;
 		/** @private */
-		internal var reliableSequenceNumber : int;
+		internal var reliableSequenceNumber : ushort;
 		/** @private */
-		internal var unreliableSequenceNumber : int;
+		internal var unreliableSequenceNumber : ushort;
 	}
 }

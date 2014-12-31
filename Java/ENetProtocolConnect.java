@@ -10,7 +10,7 @@ public class ENetProtocolConnect
 	byte incomingSessionID;
 	int mtu;
 	int outgoingBandwidth;
-	int outgoingPeerID;
+	ushort outgoingPeerID;
 	byte outgoingSessionID;
 	int packetThrottleAcceleration;
 	int packetThrottleDeceleration;

@@ -341,7 +341,7 @@ ENet.prototype.readShort = function(readBuf, readPos) {
 	var n = readBuf[readPos + 1] << 8;
 	n |= readBuf[readPos + 0];
 	readPos += 2;
-	return n;
+	return this.p.intToUshort(n);
 }
 ENet.S_O_C_K_E_T__E_R_R_O_R = -1;
 
@@ -463,7 +463,7 @@ ENet.toByte = function(a) {
 }
 
 ENet.prototype.toUint16 = function(a) {
-	return a;
+	return this.p.intToUshort(a);
 }
 
 ENet.prototype.writeByte = function(data, pos, value) {
@@ -709,7 +709,7 @@ ENet.prototype.enet_host_connect = function(host, address, channelCount, data) {
 		currentPeer.windowSize = 32768;
 	for (var i = 0; i < channelCount; i++) {
 		channel = currentPeer.channels[i];
-		channel.setOutgoingReliableSequenceNumber(0);
+		channel.outgoingReliableSequenceNumber = 0;
 		channel.outgoingUnreliableSequenceNumber = 0;
 		channel.incomingReliableSequenceNumber = 0;
 		channel.incomingUnreliableSequenceNumber = 0;
@@ -804,7 +804,7 @@ ENet.prototype.enet_host_create = function(address, peerCount, channelLimit, inc
 	for (var i = 0; i < host.peerCount; i++) {
 		currentPeer = host.peers[i];
 		currentPeer.host = host;
-		currentPeer.incomingPeerID = i;
+		currentPeer.incomingPeerID = this.p.intToUshort(i);
 		currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 255;
 		currentPeer.data = null;
 		this.enet_list_clear(currentPeer.acknowledgements);
@@ -1079,7 +1079,7 @@ ENet.prototype.enet_peer_dispatch_incoming_reliable_commands = function(peer, ch
 	var currentCommand;
 	for (currentCommand = this.enet_list_begin(channel.incomingReliableCommands); currentCommand != this.enet_list_end(channel.incomingReliableCommands); currentCommand = this.enet_list_next(currentCommand)) {
 		var incomingCommand = this.p.castToENetIncomingCommand(currentCommand);
-		if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != channel.incomingReliableSequenceNumber + 1)
+		if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != this.p.intToUshort(channel.incomingReliableSequenceNumber + 1))
 			break;
 		channel.incomingReliableSequenceNumber = incomingCommand.reliableSequenceNumber;
 		if (incomingCommand.fragmentCount > 0)
@@ -1122,8 +1122,8 @@ ENet.prototype.enet_peer_dispatch_incoming_unreliable_commands = function(peer, 
 				droppedCommand = this.enet_list_previous(currentCommand);
 		}
 		else {
-			var reliableWindow = Math.floor(incomingCommand.reliableSequenceNumber / 4096);
-			var currentWindow = Math.floor(channel.incomingReliableSequenceNumber / 4096);
+			var reliableWindow = this.p.intToUshort(Math.floor(incomingCommand.reliableSequenceNumber / 4096));
+			var currentWindow = this.p.intToUshort(Math.floor(channel.incomingReliableSequenceNumber / 4096));
 			if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 				reliableWindow += 16;
 			if (reliableWindow >= currentWindow && reliableWindow < currentWindow + 8 - 1)
@@ -1183,8 +1183,8 @@ ENet.prototype.enet_peer_queue_acknowledgement = function(peer, command, sentTim
 	var acknowledgement;
 	if (command.header.channelID < peer.channelCount) {
 		var channel = peer.channels[command.header.channelID];
-		var reliableWindow = Math.floor(command.header.reliableSequenceNumber / 4096);
-		var currentWindow = Math.floor(channel.incomingReliableSequenceNumber / 4096);
+		var reliableWindow = this.p.intToUshort(Math.floor(command.header.reliableSequenceNumber / 4096));
+		var currentWindow = this.p.intToUshort(Math.floor(channel.incomingReliableSequenceNumber / 4096));
 		if (command.header.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 			reliableWindow += 16;
 		if (reliableWindow >= currentWindow + 8 - 1 && reliableWindow <= currentWindow + 8)
@@ -1277,7 +1277,7 @@ ENet.prototype.enet_peer_queue_incoming_command = function(peer, command, packet
 	if (incomingCommand == null)
 		return this.notifyError(packet);
 	incomingCommand.reliableSequenceNumber = command.header.reliableSequenceNumber;
-	incomingCommand.unreliableSequenceNumber = unreliableSequenceNumber & 65535;
+	incomingCommand.unreliableSequenceNumber = this.p.intToUshort(unreliableSequenceNumber & 65535);
 	incomingCommand.command = command;
 	incomingCommand.fragmentCount = fragmentCount;
 	incomingCommand.fragmentsRemaining = fragmentCount;
@@ -1392,7 +1392,7 @@ ENet.prototype.enet_peer_reset = function(peer) {
 	peer.roundTripTimeVariance = 0;
 	peer.mtu = peer.host.mtu;
 	peer.reliableDataInTransit = 0;
-	peer.setOutgoingReliableSequenceNumber(0);
+	peer.outgoingReliableSequenceNumber = 0;
 	peer.windowSize = 32768;
 	peer.incomingUnsequencedGroup = 0;
 	peer.outgoingUnsequencedGroup = 0;
@@ -1465,11 +1465,11 @@ ENet.prototype.enet_peer_send = function(peer, channelID, packet) {
 			return -1;
 		if ((packet.flags & 9) == 8 && channel.outgoingUnreliableSequenceNumber < 65535) {
 			commandNumber = 12;
-			startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.outgoingUnreliableSequenceNumber + 1);
+			startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingUnreliableSequenceNumber + 1));
 		}
 		else {
 			commandNumber = 136;
-			startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.getOutgoingReliableSequenceNumber() + 1);
+			startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingReliableSequenceNumber + 1));
 		}
 		this.enet_list_clear(fragments);
 		fragmentNumber = 0;
@@ -1485,12 +1485,12 @@ ENet.prototype.enet_peer_send = function(peer, channelID, packet) {
 				return -1;
 			}
 			fragment.fragmentOffset = fragmentOffset;
-			fragment.fragmentLength = fragmentLength;
+			fragment.fragmentLength = this.p.intToUshort(fragmentLength);
 			fragment.packet = packet;
 			fragment.command.header.command = commandNumber;
 			fragment.command.header.channelID = channelID;
 			fragment.command.sendFragment.startSequenceNumber = startSequenceNumber;
-			fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(fragmentLength);
+			fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(fragmentLength));
 			fragment.command.sendFragment.fragmentCount = this.p.eNET_HOST_TO_NET_32(fragmentCount);
 			fragment.command.sendFragment.fragmentNumber = this.p.eNET_HOST_TO_NET_32(fragmentNumber);
 			fragment.command.sendFragment.totalLength = this.p.eNET_HOST_TO_NET_32(packet.dataLength);
@@ -1509,19 +1509,19 @@ ENet.prototype.enet_peer_send = function(peer, channelID, packet) {
 	command.header.channelID = channelID;
 	if ((packet.flags & 3) == 2) {
 		command.header.command = 73;
-		command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+		command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 	}
 	else if ((packet.flags & 1) != 0 || channel.outgoingUnreliableSequenceNumber >= 65535) {
 		command.header.command = 134;
 		command.sendReliable = new ENetProtocolSendReliable();
-		command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+		command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 	}
 	else {
 		command.header.command = 7;
 		command.sendUnreliable = new ENetProtocolSendUnreliable();
-		command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+		command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 	}
-	if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, packet.dataLength) == null)
+	if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, this.p.intToUshort(packet.dataLength)) == null)
 		return -1;
 	return 0;
 }
@@ -1530,16 +1530,16 @@ ENet.prototype.enet_peer_setup_outgoing_command = function(peer, outgoingCommand
 	var channel = null;
 	peer.outgoingDataTotal += this.enet_protocol_command_size(outgoingCommand.command.header.command) + outgoingCommand.fragmentLength;
 	if (outgoingCommand.command.header.channelID == 255) {
-		peer.setOutgoingReliableSequenceNumber(peer.getOutgoingReliableSequenceNumber() + 1);
-		outgoingCommand.reliableSequenceNumber = peer.getOutgoingReliableSequenceNumber();
+		peer.outgoingReliableSequenceNumber++;
+		outgoingCommand.reliableSequenceNumber = peer.outgoingReliableSequenceNumber;
 		outgoingCommand.unreliableSequenceNumber = 0;
 	}
 	else {
 		channel = peer.channels[outgoingCommand.command.header.channelID];
 		if ((outgoingCommand.command.header.command & 128) != 0) {
-			channel.setOutgoingReliableSequenceNumber(channel.getOutgoingReliableSequenceNumber() + 1);
+			channel.outgoingReliableSequenceNumber++;
 			channel.outgoingUnreliableSequenceNumber = 0;
-			outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+			outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 			outgoingCommand.unreliableSequenceNumber = 0;
 		}
 		else if ((outgoingCommand.command.header.command & 64) != 0) {
@@ -1550,7 +1550,7 @@ ENet.prototype.enet_peer_setup_outgoing_command = function(peer, outgoingCommand
 		else {
 			if (outgoingCommand.fragmentOffset == 0)
 				channel.outgoingUnreliableSequenceNumber++;
-			outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+			outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 			outgoingCommand.unreliableSequenceNumber = channel.outgoingUnreliableSequenceNumber;
 		}
 	}
@@ -1744,7 +1744,7 @@ ENet.prototype.enet_protocol_handle_acknowledge = function(host, event_, peer, c
 		peer.packetThrottleEpoch = host.serviceTime;
 	}
 	receivedReliableSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.acknowledge.receivedReliableSequenceNumber);
-	commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, receivedReliableSequenceNumber, command.header.channelID);
+	commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, this.p.intToUshort(receivedReliableSequenceNumber), command.header.channelID);
 	switch (peer.state) {
 	case 2:
 		if (commandNumber != 3)
@@ -1842,7 +1842,7 @@ ENet.prototype.enet_protocol_handle_connect = function(host, header, command) {
 	currentPeer.incomingSessionID = outgoingSessionID;
 	for (i = 0; i < currentPeer.channelCount; i++) {
 		channel = currentPeer.channels[i];
-		channel.setOutgoingReliableSequenceNumber(0);
+		channel.outgoingReliableSequenceNumber = 0;
 		channel.outgoingUnreliableSequenceNumber = 0;
 		channel.incomingReliableSequenceNumber = 0;
 		channel.incomingUnreliableSequenceNumber = 0;
@@ -1933,8 +1933,8 @@ ENet.prototype.enet_protocol_handle_incoming_commands = function(host, event_) {
 	header = this.deserialize(host.receivedData);
 	peerID = this.eNET_NET_TO_HOST_16(header.peerID);
 	sessionID = (peerID & 12288) >> 12;
-	flags = peerID & 49152;
-	peerID &= ~61440;
+	flags = this.p.intToUshort(peerID & 49152);
+	peerID &= this.p.intToUshort(~61440);
 	headerSize = (flags & 32768) != 0 ? 4 : 2;
 	if (host.checksum != null)
 		headerSize += 4;
@@ -2108,8 +2108,8 @@ ENet.prototype.enet_protocol_handle_send_fragment = function(host, peer, command
 		return -1;
 	channel = peer.channels[command.header.channelID];
 	startSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-	startWindow = Math.floor(startSequenceNumber / 4096);
-	currentWindow = Math.floor(channel.incomingReliableSequenceNumber / 4096);
+	startWindow = this.p.intToUshort(Math.floor(startSequenceNumber / 4096));
+	currentWindow = this.p.intToUshort(Math.floor(channel.incomingReliableSequenceNumber / 4096));
 	if (startSequenceNumber < channel.incomingReliableSequenceNumber)
 		startWindow += 16;
 	if (startWindow < currentWindow || startWindow >= currentWindow + 8 - 1)
@@ -2142,7 +2142,7 @@ ENet.prototype.enet_protocol_handle_send_fragment = function(host, peer, command
 		var packet = this.enet_packet_create(null, totalLength, 1);
 		if (packet == null)
 			return -1;
-		hostCommand.header.reliableSequenceNumber = startSequenceNumber;
+		hostCommand.header.reliableSequenceNumber = this.p.intToUshort(startSequenceNumber);
 		startCommand = this.enet_peer_queue_incoming_command(peer, hostCommand, packet, fragmentCount);
 		if (startCommand == null)
 			return -1;
@@ -2224,8 +2224,8 @@ ENet.prototype.enet_protocol_handle_send_unreliable_fragment = function(host, pe
 	channel = peer.channels[command.header.channelID];
 	reliableSequenceNumber = command.header.reliableSequenceNumber;
 	startSequenceNumber = this.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-	reliableWindow = Math.floor(reliableSequenceNumber / 4096);
-	currentWindow = Math.floor(channel.incomingReliableSequenceNumber / 4096);
+	reliableWindow = this.p.intToUshort(Math.floor(reliableSequenceNumber / 4096));
+	currentWindow = this.p.intToUshort(Math.floor(channel.incomingReliableSequenceNumber / 4096));
 	if (reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 		reliableWindow += 16;
 	if (reliableWindow < currentWindow || reliableWindow >= currentWindow + 8 - 1)
@@ -2427,7 +2427,7 @@ ENet.prototype.enet_protocol_remove_sent_reliable_command = function(peer, relia
 		return 0;
 	if (channelID < peer.channelCount) {
 		var channel = peer.channels[channelID];
-		var reliableWindow = Math.floor(reliableSequenceNumber / 4096);
+		var reliableWindow = this.p.intToUshort(Math.floor(reliableSequenceNumber / 4096));
 		if (channel.reliableWindows[reliableWindow] > 0) {
 			channel.reliableWindows[reliableWindow]--;
 			if (channel.reliableWindows[reliableWindow] == 0)
@@ -2489,7 +2489,7 @@ ENet.prototype.enet_protocol_send_acknowledgements = function(host, peer) {
 		host.commands[commandI].header.reliableSequenceNumber = reliableSequenceNumber;
 		host.commands[commandI].acknowledge = new ENetProtocolAcknowledge();
 		host.commands[commandI].acknowledge.receivedReliableSequenceNumber = reliableSequenceNumber;
-		host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(acknowledgement.sentTime);
+		host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(acknowledgement.sentTime));
 		var buf = new Array(128);
 		this.serializeCommand(buf, host.commands[commandI]);
 		host.buffers[bufferI].data = buf;
@@ -2559,7 +2559,7 @@ ENet.prototype.enet_protocol_send_outgoing_commands = function(host, event_, che
 			}
 			host.buffers[0].data = headerData;
 			if ((host.headerFlags & 32768) != 0) {
-				header.sentTime = this.eNET_HOST_TO_NET_16(host.serviceTime & 65535);
+				header.sentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(host.serviceTime & 65535));
 				host.buffers[0].dataLength = 4;
 			}
 			else {
@@ -2569,8 +2569,8 @@ ENet.prototype.enet_protocol_send_outgoing_commands = function(host, event_, che
 			if (host.compressor != null) {
 			}
 			if (currentPeer.outgoingPeerID < 4095)
-				host.headerFlags |= currentPeer.outgoingSessionID << 12;
-			header.peerID = this.eNET_HOST_TO_NET_16(currentPeer.outgoingPeerID | host.headerFlags);
+				host.headerFlags |= this.p.intToUshort(currentPeer.outgoingSessionID << 12);
+			header.peerID = this.eNET_HOST_TO_NET_16(this.p.intToUshort(currentPeer.outgoingPeerID | host.headerFlags));
 			this.serializeHeader(headerData, header);
 			if (host.checksum != null) {
 			}
@@ -2609,7 +2609,7 @@ ENet.prototype.enet_protocol_send_reliable_outgoing_commands = function(host, pe
 	while (currentCommand != this.enet_list_end(peer.outgoingReliableCommands)) {
 		outgoingCommand = this.p.castToENetOutgoingCommand(currentCommand);
 		channel = outgoingCommand.command.header.channelID < peer.channelCount ? peer.channels[outgoingCommand.command.header.channelID] : null;
-		reliableWindow = Math.floor(outgoingCommand.reliableSequenceNumber / 4096);
+		reliableWindow = this.p.intToUshort(Math.floor(outgoingCommand.reliableSequenceNumber / 4096));
 		if (channel != null) {
 			if (windowWrap == 0 && outgoingCommand.sendAttempts < 1 && outgoingCommand.reliableSequenceNumber % 4096 == 0 && (channel.reliableWindows[(reliableWindow + 16 - 1) % 16] >= 4096 || (channel.usedReliableWindows & (255 << reliableWindow | 255 >> 4096 - reliableWindow)) != 0))
 				windowWrap = 1;
@@ -2777,21 +2777,13 @@ function ENetChannel()
 	this.incomingReliableSequenceNumber = 0;
 	this.incomingUnreliableCommands = null;
 	this.incomingUnreliableSequenceNumber = 0;
-	this.outgoingReliableSequenceNumber = 0;
-	this.outgoingUnreliableSequenceNumber = 0;
+	this.outgoingReliableSequenceNumber = null;
+	this.outgoingUnreliableSequenceNumber = null;
 	this.reliableWindows = null;
 	this.usedReliableWindows = 0;
 	this.reliableWindows = new Array(16);
 	this.incomingReliableCommands = new ENetList();
 	this.incomingUnreliableCommands = new ENetList();
-}
-
-ENetChannel.prototype.getOutgoingReliableSequenceNumber = function() {
-	return this.outgoingReliableSequenceNumber;
-}
-
-ENetChannel.prototype.setOutgoingReliableSequenceNumber = function(value) {
-	this.outgoingReliableSequenceNumber = value % 65536;
 }
 ENetChannel.RELIABLE_WINDOWS_LENGTH = 16;
 
@@ -2838,7 +2830,7 @@ function ENetHost()
 	this.connectedPeers = 0;
 	this.continueSending = 0;
 	this.dispatchQueue = null;
-	this.headerFlags = 0;
+	this.headerFlags = null;
 	this.incomingBandwidth = 0;
 	this.intercept = null;
 	this.mtu = 0;
@@ -2886,8 +2878,8 @@ function ENetIncomingCommand()
 	this.fragments = null;
 	this.fragmentsRemaining = 0;
 	this.packet = null;
-	this.reliableSequenceNumber = 0;
-	this.unreliableSequenceNumber = 0;
+	this.reliableSequenceNumber = null;
+	this.unreliableSequenceNumber = null;
 }
 ENetIncomingCommand.prototype = new ENetListNode();
 
@@ -2916,15 +2908,15 @@ ENetList.prototype.setSentinel = function(value) {
 function ENetOutgoingCommand()
 {
 	this.command = null;
-	this.fragmentLength = 0;
+	this.fragmentLength = null;
 	this.fragmentOffset = 0;
 	this.packet = null;
-	this.reliableSequenceNumber = 0;
+	this.reliableSequenceNumber = null;
 	this.roundTripTimeout = 0;
 	this.roundTripTimeoutLimit = 0;
-	this.sendAttempts = 0;
+	this.sendAttempts = null;
 	this.sentTime = 0;
-	this.unreliableSequenceNumber = 0;
+	this.unreliableSequenceNumber = null;
 }
 ENetOutgoingCommand.prototype = new ENetListNode();
 
@@ -3019,7 +3011,7 @@ function ENetPeer()
 	this.incomingBandwidth = 0;
 	this.incomingBandwidthThrottleEpoch = 0;
 	this.incomingDataTotal = 0;
-	this.incomingPeerID = 0;
+	this.incomingPeerID = null;
 	this.incomingSessionID = 0;
 	this.incomingUnsequencedGroup = 0;
 	this.lastReceiveTime = 0;
@@ -3033,12 +3025,12 @@ function ENetPeer()
 	this.outgoingBandwidth = 0;
 	this.outgoingBandwidthThrottleEpoch = 0;
 	this.outgoingDataTotal = 0;
-	this.outgoingPeerID = 0;
+	this.outgoingPeerID = null;
 	this.outgoingReliableCommands = null;
-	this.outgoingReliableSequenceNumber = 0;
+	this.outgoingReliableSequenceNumber = null;
 	this.outgoingSessionID = 0;
 	this.outgoingUnreliableCommands = null;
-	this.outgoingUnsequencedGroup = 0;
+	this.outgoingUnsequencedGroup = null;
 	this.packetLoss = 0;
 	this.packetLossEpoch = 0;
 	this.packetLossVariance = 0;
@@ -3072,14 +3064,6 @@ function ENetPeer()
 	this.unsequencedWindow = new Array(32);
 }
 ENetPeer.prototype = new ENetList();
-
-ENetPeer.prototype.getOutgoingReliableSequenceNumber = function() {
-	return this.outgoingReliableSequenceNumber;
-}
-
-ENetPeer.prototype.setOutgoingReliableSequenceNumber = function(value) {
-	this.outgoingReliableSequenceNumber = value % 65536;
-}
 
 ENetPeer.prototype.dispatchList = function() {
 	return this;
@@ -3124,8 +3108,8 @@ function ENetProtocol()
 
 function ENetProtocolAcknowledge()
 {
-	this.receivedReliableSequenceNumber = 0;
-	this.receivedSentTime = 0;
+	this.receivedReliableSequenceNumber = null;
+	this.receivedSentTime = null;
 }
 ENetProtocolAcknowledge.SIZE_OF = 8;
 
@@ -3139,7 +3123,7 @@ function ENetProtocolCommandHeader()
 {
 	this.channelID = 0;
 	this.command = 0;
-	this.reliableSequenceNumber = 0;
+	this.reliableSequenceNumber = null;
 }
 ENetProtocolCommandHeader.SIZE_OF = 4;
 
@@ -3152,7 +3136,7 @@ function ENetProtocolConnect()
 	this.incomingSessionID = 0;
 	this.mtu = 0;
 	this.outgoingBandwidth = 0;
-	this.outgoingPeerID = 0;
+	this.outgoingPeerID = null;
 	this.outgoingSessionID = 0;
 	this.packetThrottleAcceleration = 0;
 	this.packetThrottleDeceleration = 0;
@@ -3167,8 +3151,8 @@ function ENetProtocolDisconnect()
 
 function ENetProtocolHeader()
 {
-	this.peerID = 0;
-	this.sentTime = 0;
+	this.peerID = null;
+	this.sentTime = null;
 }
 ENetProtocolHeader.SIZE_OF = 4;
 
@@ -3179,32 +3163,32 @@ ENetProtocolPing.SIZE_OF = 4;
 
 function ENetProtocolSendFragment()
 {
-	this.dataLength = 0;
+	this.dataLength = null;
 	this.fragmentCount = 0;
 	this.fragmentNumber = 0;
 	this.fragmentOffset = 0;
-	this.startSequenceNumber = 0;
+	this.startSequenceNumber = null;
 	this.totalLength = 0;
 }
 ENetProtocolSendFragment.SIZE_OF = 28;
 
 function ENetProtocolSendReliable()
 {
-	this.dataLength = 0;
+	this.dataLength = null;
 }
 ENetProtocolSendReliable.SIZE_OF = 6;
 
 function ENetProtocolSendUnreliable()
 {
-	this.dataLength = 0;
-	this.unreliableSequenceNumber = 0;
+	this.dataLength = null;
+	this.unreliableSequenceNumber = null;
 }
 ENetProtocolSendUnreliable.SIZE_OF = 12;
 
 function ENetProtocolSendUnsequenced()
 {
-	this.dataLength = 0;
-	this.unsequencedGroup = 0;
+	this.dataLength = null;
+	this.unsequencedGroup = null;
 }
 
 function ENetProtocolThrottleConfigure()
@@ -3222,7 +3206,7 @@ function ENetProtocolVerifyConnect()
 	this.incomingSessionID = 0;
 	this.mtu = 0;
 	this.outgoingBandwidth = 0;
-	this.outgoingPeerID = 0;
+	this.outgoingPeerID = null;
 	this.outgoingSessionID = 0;
 	this.packetThrottleAcceleration = 0;
 	this.packetThrottleDeceleration = 0;
@@ -3283,13 +3267,6 @@ Math.isLessThanUnsigned = function(n1, n2) {
 		comp = !comp;
 	}
 	return comp;
-}
-
-function Test()
-{
-}
-
-Test.prototype.f = function() {
 }
 
 function UserData()

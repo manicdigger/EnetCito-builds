@@ -758,7 +758,7 @@ sub read_short($$$) {
 	my $n = $readBuf->[$readPos + 1] << 8;
 	$n |= $readBuf->[$readPos + 0];
 	$readPos += 2;
-	return $n;
+	return $self->{p}->int_to_ushort($n);
 }
 
 sub serialize_command($$$) {
@@ -880,7 +880,7 @@ sub to_byte($) {
 
 sub to_uint16($$) {
 	my ($self, $a) = @_;
-	return $a;
+	return $self->{p}->int_to_ushort($a);
 }
 
 sub write_byte($$$$) {
@@ -1343,7 +1343,7 @@ sub enet_host_connect($$$$$) {
 	}
 	for (my $i = 0; $i < $channelCount; $i++) {
 		$channel = $currentPeer->{channels}->[$i];
-		$channel->set_outgoing_reliable_sequence_number(0);
+		$channel->{outgoing_reliable_sequence_number} = 0;
 		$channel->{outgoing_unreliable_sequence_number} = 0;
 		$channel->{incoming_reliable_sequence_number} = 0;
 		$channel->{incoming_unreliable_sequence_number} = 0;
@@ -1481,7 +1481,7 @@ sub enet_host_create($$$$$$) {
 	for (my $i = 0; $i < $host->{peer_count}; $i++) {
 		$currentPeer = $host->{peers}->[$i];
 		$currentPeer->{host} = $host;
-		$currentPeer->{incoming_peer_i_d} = $i;
+		$currentPeer->{incoming_peer_i_d} = $self->{p}->int_to_ushort($i);
 		$currentPeer->{outgoing_session_i_d} = $currentPeer->{incoming_session_i_d} = 255;
 		$currentPeer->{data} = undef;
 		$self->enet_list_clear($currentPeer->{acknowledgements});
@@ -1961,7 +1961,7 @@ sub enet_peer_dispatch_incoming_reliable_commands($$$) {
 	my $currentCommand;
 	for ($currentCommand = $self->enet_list_begin($channel->{incoming_reliable_commands}); $currentCommand != $self->enet_list_end($channel->{incoming_reliable_commands}); $currentCommand = $self->enet_list_next($currentCommand)) {
 		my $incomingCommand = $self->{p}->cast_to_e_net_incoming_command($currentCommand);
-		if ($incomingCommand->{fragments_remaining} > 0 || $incomingCommand->{reliable_sequence_number} != $channel->{incoming_reliable_sequence_number} + 1) {
+		if ($incomingCommand->{fragments_remaining} > 0 || $incomingCommand->{reliable_sequence_number} != $self->{p}->int_to_ushort($channel->{incoming_reliable_sequence_number} + 1)) {
 			last;
 		}
 		$channel->{incoming_reliable_sequence_number} = $incomingCommand->{reliable_sequence_number};
@@ -2011,8 +2011,8 @@ sub enet_peer_dispatch_incoming_unreliable_commands($$$) {
 			}
 		}
 		else {
-			my $reliableWindow = $incomingCommand->{reliable_sequence_number} / 4096;
-			my $currentWindow = $channel->{incoming_reliable_sequence_number} / 4096;
+			my $reliableWindow = $self->{p}->int_to_ushort($incomingCommand->{reliable_sequence_number} / 4096);
+			my $currentWindow = $self->{p}->int_to_ushort($channel->{incoming_reliable_sequence_number} / 4096);
 			if ($incomingCommand->{reliable_sequence_number} < $channel->{incoming_reliable_sequence_number}) {
 				$reliableWindow += 16;
 			}
@@ -2121,8 +2121,8 @@ sub enet_peer_queue_acknowledgement($$$$) {
 	my $acknowledgement;
 	if ($command->{header}->{channel_i_d} < $peer->{channel_count}) {
 		my $channel = $peer->{channels}->[$command->{header}->{channel_i_d}];
-		my $reliableWindow = $command->{header}->{reliable_sequence_number} / 4096;
-		my $currentWindow = $channel->{incoming_reliable_sequence_number} / 4096;
+		my $reliableWindow = $self->{p}->int_to_ushort($command->{header}->{reliable_sequence_number} / 4096);
+		my $currentWindow = $self->{p}->int_to_ushort($channel->{incoming_reliable_sequence_number} / 4096);
 		if ($command->{header}->{reliable_sequence_number} < $channel->{incoming_reliable_sequence_number}) {
 			$reliableWindow += 16;
 		}
@@ -2231,7 +2231,7 @@ sub enet_peer_queue_incoming_command($$$$$) {
 		return $self->notify_error($packet);
 	}
 	$incomingCommand->{reliable_sequence_number} = $command->{header}->{reliable_sequence_number};
-	$incomingCommand->{unreliable_sequence_number} = $unreliableSequenceNumber & 65535;
+	$incomingCommand->{unreliable_sequence_number} = $self->{p}->int_to_ushort($unreliableSequenceNumber & 65535);
 	$incomingCommand->{command} = $command;
 	$incomingCommand->{fragment_count} = $fragmentCount;
 	$incomingCommand->{fragments_remaining} = $fragmentCount;
@@ -2396,7 +2396,7 @@ sub enet_peer_reset($$) {
 	$peer->{round_trip_time_variance} = 0;
 	$peer->{mtu} = $peer->{host}->{mtu};
 	$peer->{reliable_data_in_transit} = 0;
-	$peer->set_outgoing_reliable_sequence_number(0);
+	$peer->{outgoing_reliable_sequence_number} = 0;
 	$peer->{window_size} = 32768;
 	$peer->{incoming_unsequenced_group} = 0;
 	$peer->{outgoing_unsequenced_group} = 0;
@@ -2513,11 +2513,11 @@ sub enet_peer_send($$$$) {
 		}
 		if (($packet->{flags} & 9) == 8 && $channel->{outgoing_unreliable_sequence_number} < 65535) {
 			$commandNumber = 12;
-			$startSequenceNumber = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($channel->{outgoing_unreliable_sequence_number} + 1);
+			$startSequenceNumber = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($channel->{outgoing_unreliable_sequence_number} + 1));
 		}
 		else {
 			$commandNumber = 136;
-			$startSequenceNumber = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($channel->get_outgoing_reliable_sequence_number() + 1);
+			$startSequenceNumber = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($channel->{outgoing_reliable_sequence_number} + 1));
 		}
 		$self->enet_list_clear($fragments);
 		$fragmentNumber = 0;
@@ -2534,12 +2534,12 @@ sub enet_peer_send($$$$) {
 				return -1;
 			}
 			$fragment->{fragment_offset} = $fragmentOffset;
-			$fragment->{fragment_length} = $fragmentLength;
+			$fragment->{fragment_length} = $self->{p}->int_to_ushort($fragmentLength);
 			$fragment->{packet} = $packet;
 			$fragment->{command}->{header}->{command} = $commandNumber;
 			$fragment->{command}->{header}->{channel_i_d} = $channelID;
 			$fragment->{command}->{send_fragment}->{start_sequence_number} = $startSequenceNumber;
-			$fragment->{command}->{send_fragment}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($fragmentLength);
+			$fragment->{command}->{send_fragment}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($fragmentLength));
 			$fragment->{command}->{send_fragment}->{fragment_count} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_32($fragmentCount);
 			$fragment->{command}->{send_fragment}->{fragment_number} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_32($fragmentNumber);
 			$fragment->{command}->{send_fragment}->{total_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_32($packet->{data_length});
@@ -2558,19 +2558,19 @@ sub enet_peer_send($$$$) {
 	$command->{header}->{channel_i_d} = $channelID;
 	if (($packet->{flags} & 3) == 2) {
 		$command->{header}->{command} = 73;
-		$command->{send_unsequenced}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($packet->{data_length});
+		$command->{send_unsequenced}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($packet->{data_length}));
 	}
 	elsif (($packet->{flags} & 1) != 0 || $channel->{outgoing_unreliable_sequence_number} >= 65535) {
 		$command->{header}->{command} = 134;
 		$command->{send_reliable} = ENetProtocolSendReliable->new();
-		$command->{send_reliable}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($packet->{data_length});
+		$command->{send_reliable}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($packet->{data_length}));
 	}
 	else {
 		$command->{header}->{command} = 7;
 		$command->{send_unreliable} = ENetProtocolSendUnreliable->new();
-		$command->{send_unreliable}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($packet->{data_length});
+		$command->{send_unreliable}->{data_length} = $self->{p}->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($packet->{data_length}));
 	}
-	if (!defined($self->enet_peer_queue_outgoing_command($peer, $command, $packet, 0, $packet->{data_length}))) {
+	if (!defined($self->enet_peer_queue_outgoing_command($peer, $command, $packet, 0, $self->{p}->int_to_ushort($packet->{data_length})))) {
 		return -1;
 	}
 	return 0;
@@ -2585,16 +2585,16 @@ sub enet_peer_setup_outgoing_command($$$) {
 	my $channel = undef;
 	$peer->{outgoing_data_total} += $self->enet_protocol_command_size($outgoingCommand->{command}->{header}->{command}) + $outgoingCommand->{fragment_length};
 	if ($outgoingCommand->{command}->{header}->{channel_i_d} == 255) {
-		$peer->set_outgoing_reliable_sequence_number($peer->get_outgoing_reliable_sequence_number() + 1);
-		$outgoingCommand->{reliable_sequence_number} = $peer->get_outgoing_reliable_sequence_number();
+		$peer->{outgoing_reliable_sequence_number}++;
+		$outgoingCommand->{reliable_sequence_number} = $peer->{outgoing_reliable_sequence_number};
 		$outgoingCommand->{unreliable_sequence_number} = 0;
 	}
 	else {
 		$channel = $peer->{channels}->[$outgoingCommand->{command}->{header}->{channel_i_d}];
 		if (($outgoingCommand->{command}->{header}->{command} & 128) != 0) {
-			$channel->set_outgoing_reliable_sequence_number($channel->get_outgoing_reliable_sequence_number() + 1);
+			$channel->{outgoing_reliable_sequence_number}++;
 			$channel->{outgoing_unreliable_sequence_number} = 0;
-			$outgoingCommand->{reliable_sequence_number} = $channel->get_outgoing_reliable_sequence_number();
+			$outgoingCommand->{reliable_sequence_number} = $channel->{outgoing_reliable_sequence_number};
 			$outgoingCommand->{unreliable_sequence_number} = 0;
 		}
 		elsif (($outgoingCommand->{command}->{header}->{command} & 64) != 0) {
@@ -2606,7 +2606,7 @@ sub enet_peer_setup_outgoing_command($$$) {
 			if ($outgoingCommand->{fragment_offset} == 0) {
 				$channel->{outgoing_unreliable_sequence_number}++;
 			}
-			$outgoingCommand->{reliable_sequence_number} = $channel->get_outgoing_reliable_sequence_number();
+			$outgoingCommand->{reliable_sequence_number} = $channel->{outgoing_reliable_sequence_number};
 			$outgoingCommand->{unreliable_sequence_number} = $channel->{outgoing_unreliable_sequence_number};
 		}
 	}
@@ -2901,7 +2901,7 @@ sub enet_protocol_handle_acknowledge($$$$$) {
 		$peer->{packet_throttle_epoch} = $host->{service_time};
 	}
 	$receivedReliableSequenceNumber = $self->{p}->e_n_e_t__n_e_t__t_o__h_o_s_t_16($command->{acknowledge}->{received_reliable_sequence_number});
-	$commandNumber = $self->enet_protocol_remove_sent_reliable_command($peer, $receivedReliableSequenceNumber, $command->{header}->{channel_i_d});
+	$commandNumber = $self->enet_protocol_remove_sent_reliable_command($peer, $self->{p}->int_to_ushort($receivedReliableSequenceNumber), $command->{header}->{channel_i_d});
 	given ($peer->{state}) {
 		when (2) {
 			if ($commandNumber != 3) {
@@ -3025,7 +3025,7 @@ sub enet_protocol_handle_connect($$$$) {
 	$currentPeer->{incoming_session_i_d} = $outgoingSessionID;
 	for ($i = 0; $i < $currentPeer->{channel_count}; $i++) {
 		$channel = $currentPeer->{channels}->[$i];
-		$channel->set_outgoing_reliable_sequence_number(0);
+		$channel->{outgoing_reliable_sequence_number} = 0;
 		$channel->{outgoing_unreliable_sequence_number} = 0;
 		$channel->{incoming_reliable_sequence_number} = 0;
 		$channel->{incoming_unreliable_sequence_number} = 0;
@@ -3144,8 +3144,8 @@ sub enet_protocol_handle_incoming_commands($$$) {
 	$header = $self->deserialize($host->{received_data});
 	$peerID = $self->e_n_e_t__n_e_t__t_o__h_o_s_t_16($header->{peer_i_d});
 	$sessionID = ($peerID & 12288) >> 12;
-	$flags = $peerID & 49152;
-	$peerID &= ~61440;
+	$flags = $self->{p}->int_to_ushort($peerID & 49152);
+	$peerID &= $self->{p}->int_to_ushort(~61440);
 	$headerSize = ($flags & 32768) != 0 ? 4 : 2;
 	if (defined($host->{checksum})) {
 		$headerSize += 4;
@@ -3355,8 +3355,8 @@ sub enet_protocol_handle_send_fragment($$$$$$) {
 	}
 	$channel = $peer->{channels}->[$command->{header}->{channel_i_d}];
 	$startSequenceNumber = $self->{p}->e_n_e_t__n_e_t__t_o__h_o_s_t_16($command->{send_fragment}->{start_sequence_number});
-	$startWindow = $startSequenceNumber / 4096;
-	$currentWindow = $channel->{incoming_reliable_sequence_number} / 4096;
+	$startWindow = $self->{p}->int_to_ushort($startSequenceNumber / 4096);
+	$currentWindow = $self->{p}->int_to_ushort($channel->{incoming_reliable_sequence_number} / 4096);
 	if ($startSequenceNumber < $channel->{incoming_reliable_sequence_number}) {
 		$startWindow += 16;
 	}
@@ -3397,7 +3397,7 @@ sub enet_protocol_handle_send_fragment($$$$$$) {
 		if (!defined($packet)) {
 			return -1;
 		}
-		$hostCommand->{header}->{reliable_sequence_number} = $startSequenceNumber;
+		$hostCommand->{header}->{reliable_sequence_number} = $self->{p}->int_to_ushort($startSequenceNumber);
 		$startCommand = $self->enet_peer_queue_incoming_command($peer, $hostCommand, $packet, $fragmentCount);
 		if (!defined($startCommand)) {
 			return -1;
@@ -3501,8 +3501,8 @@ sub enet_protocol_handle_send_unreliable_fragment($$$$$) {
 	$channel = $peer->{channels}->[$command->{header}->{channel_i_d}];
 	$reliableSequenceNumber = $command->{header}->{reliable_sequence_number};
 	$startSequenceNumber = $self->e_n_e_t__n_e_t__t_o__h_o_s_t_16($command->{send_fragment}->{start_sequence_number});
-	$reliableWindow = $reliableSequenceNumber / 4096;
-	$currentWindow = $channel->{incoming_reliable_sequence_number} / 4096;
+	$reliableWindow = $self->{p}->int_to_ushort($reliableSequenceNumber / 4096);
+	$currentWindow = $self->{p}->int_to_ushort($channel->{incoming_reliable_sequence_number} / 4096);
 	if ($reliableSequenceNumber < $channel->{incoming_reliable_sequence_number}) {
 		$reliableWindow += 16;
 	}
@@ -3773,7 +3773,7 @@ sub enet_protocol_remove_sent_reliable_command($$$$) {
 	}
 	if ($channelID < $peer->{channel_count}) {
 		my $channel = $peer->{channels}->[$channelID];
-		my $reliableWindow = $reliableSequenceNumber / 4096;
+		my $reliableWindow = $self->{p}->int_to_ushort($reliableSequenceNumber / 4096);
 		if ($channel->{reliable_windows}->[$reliableWindow] > 0) {
 			$channel->{reliable_windows}->[$reliableWindow]--;
 			if ($channel->{reliable_windows}->[$reliableWindow] == 0) {
@@ -3844,7 +3844,7 @@ sub enet_protocol_send_acknowledgements($$$) {
 		$host->{commands}->[$commandI]->{header}->{reliable_sequence_number} = $reliableSequenceNumber;
 		$host->{commands}->[$commandI]->{acknowledge} = ENetProtocolAcknowledge->new();
 		$host->{commands}->[$commandI]->{acknowledge}->{received_reliable_sequence_number} = $reliableSequenceNumber;
-		$host->{commands}->[$commandI]->{acknowledge}->{received_sent_time} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($acknowledgement->{sent_time});
+		$host->{commands}->[$commandI]->{acknowledge}->{received_sent_time} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($acknowledgement->{sent_time}));
 		my $buf = [];
 		$self->serialize_command($buf, $host->{commands}->[$commandI]);
 		$host->{buffers}->[$bufferI]->{data} = $buf;
@@ -3927,7 +3927,7 @@ sub enet_protocol_send_outgoing_commands($$$$) {
 			}
 			$host->{buffers}->[0]->{data} = $headerData;
 			if (($host->{header_flags} & 32768) != 0) {
-				$header->{sent_time} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($host->{service_time} & 65535);
+				$header->{sent_time} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($host->{service_time} & 65535));
 				$host->{buffers}->[0]->{data_length} = 4;
 			}
 			else {
@@ -3937,9 +3937,9 @@ sub enet_protocol_send_outgoing_commands($$$$) {
 			if (defined($host->{compressor})) {
 			}
 			if ($currentPeer->{outgoing_peer_i_d} < 4095) {
-				$host->{header_flags} |= $currentPeer->{outgoing_session_i_d} << 12;
+				$host->{header_flags} |= $self->{p}->int_to_ushort($currentPeer->{outgoing_session_i_d} << 12);
 			}
-			$header->{peer_i_d} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($currentPeer->{outgoing_peer_i_d} | $host->{header_flags});
+			$header->{peer_i_d} = $self->e_n_e_t__h_o_s_t__t_o__n_e_t_16($self->{p}->int_to_ushort($currentPeer->{outgoing_peer_i_d} | $host->{header_flags}));
 			$self->serialize_header($headerData, $header);
 			if (defined($host->{checksum})) {
 			}
@@ -3984,7 +3984,7 @@ sub enet_protocol_send_reliable_outgoing_commands($$$) {
 	while ($currentCommand != $self->enet_list_end($peer->{outgoing_reliable_commands})) {
 		$outgoingCommand = $self->{p}->cast_to_e_net_outgoing_command($currentCommand);
 		$channel = $outgoingCommand->{command}->{header}->{channel_i_d} < $peer->{channel_count} ? $peer->{channels}->[$outgoingCommand->{command}->{header}->{channel_i_d}] : undef;
-		$reliableWindow = $outgoingCommand->{reliable_sequence_number} / 4096;
+		$reliableWindow = $self->{p}->int_to_ushort($outgoingCommand->{reliable_sequence_number} / 4096);
 		if (defined($channel)) {
 			if ($windowWrap == 0 && $outgoingCommand->{send_attempts} < 1 && $outgoingCommand->{reliable_sequence_number} % 4096 == 0 && ($channel->{reliable_windows}->[($reliableWindow + 16 - 1) % 16] >= 4096 || ($channel->{used_reliable_windows} & (255 << $reliableWindow | 255 >> 4096 - $reliableWindow)) != 0)) {
 				$windowWrap = 1;
@@ -4207,24 +4207,6 @@ sub new($) {
 	$self->{incoming_reliable_commands} = ENetList->new();
 	$self->{incoming_unreliable_commands} = ENetList->new();
 	return $self;
-}
-
-=head2 C<$enetchannel-E<gt>get_outgoing_reliable_sequence_number()>
-
-=cut
-
-sub get_outgoing_reliable_sequence_number($) {
-	my ($self) = @_;
-	return $self->{outgoing_reliable_sequence_number};
-}
-
-=head2 C<$enetchannel-E<gt>set_outgoing_reliable_sequence_number($value)>
-
-=cut
-
-sub set_outgoing_reliable_sequence_number($$) {
-	my ($self, $value) = @_;
-	$self->{outgoing_reliable_sequence_number} = $value % 65536;
 }
 
 =head1 Class ENetChecksumCallback
@@ -4696,24 +4678,6 @@ sub new($) {
 	return $self;
 }
 
-=head2 C<$enetpeer-E<gt>get_outgoing_reliable_sequence_number()>
-
-=cut
-
-sub get_outgoing_reliable_sequence_number($) {
-	my ($self) = @_;
-	return $self->{outgoing_reliable_sequence_number};
-}
-
-=head2 C<$enetpeer-E<gt>set_outgoing_reliable_sequence_number($value)>
-
-=cut
-
-sub set_outgoing_reliable_sequence_number($$) {
-	my ($self, $value) = @_;
-	$self->{outgoing_reliable_sequence_number} = $value % 65536;
-}
-
 sub dispatch_list($) {
 	my ($self) = @_;
 	return $self;
@@ -4842,6 +4806,10 @@ sub new($) {
 =cut
 
 =head2 C<$enetplatform-E<gt>e_n_e_t__n_e_t__t_o__h_o_s_t_32($fragmentOffset)>
+
+=cut
+
+=head2 C<$enetplatform-E<gt>int_to_ushort($p)>
 
 =cut
 
@@ -5347,29 +5315,6 @@ sub is_less_than_unsigned($$) {
 		$comp = !$comp;
 	}
 	return $comp;
-}
-
-=head1 Class Test
-
-=cut
-
-package Test;
-
-=head2 C<$test = Test-E<gt>new()>
-
-=cut
-
-sub new($) {
-	my $self = bless {}, shift;
-	return $self;
-}
-
-=head2 C<$test-E<gt>f()>
-
-=cut
-
-sub f($) {
-	my ($self) = @_;
 }
 
 =head1 Class UserData

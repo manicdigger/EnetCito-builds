@@ -7,8 +7,8 @@ package
 	{
 		public static const SIZE_OF : int = 4;
 		/** @private */
-		internal var peerID : int;
+		internal var peerID : ushort;
 		/** @private */
-		internal var sentTime : int;
+		internal var sentTime : ushort;
 	}
 }

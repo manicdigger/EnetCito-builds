@@ -37,7 +37,7 @@ public class ENetHost
 	int connectedPeers;
 	int continueSending;
 	ENetList dispatchQueue;
-	int headerFlags;
+	ushort headerFlags;
 	int incomingBandwidth;
 	ENetInterceptCallback intercept;
 	int mtu;

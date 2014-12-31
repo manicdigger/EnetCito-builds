@@ -6,5 +6,5 @@ public class ENetProtocolCommandHeader
 	public static final int SIZE_OF = 4;
 	byte channelID;
 	byte command;
-	int reliableSequenceNumber;
+	ushort reliableSequenceNumber;
 }

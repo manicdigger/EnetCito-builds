@@ -13,16 +13,6 @@ public class ENetPeer extends ENetList
 		this.dispatchedCommands = new ENetList();
 		this.unsequencedWindow = new int[32];
 	}
-
-	public final int getOutgoingReliableSequenceNumber()
-	{
-		return this.outgoingReliableSequenceNumber;
-	}
-
-	public final void setOutgoingReliableSequenceNumber(int value)
-	{
-		this.outgoingReliableSequenceNumber = value % 65536;
-	}
 	ENetList acknowledgements;
 	ENetAddress address;
 	int channelCount;
@@ -42,7 +32,7 @@ public class ENetPeer extends ENetList
 	int incomingBandwidth;
 	int incomingBandwidthThrottleEpoch;
 	int incomingDataTotal;
-	int incomingPeerID;
+	ushort incomingPeerID;
 	byte incomingSessionID;
 	int incomingUnsequencedGroup;
 	int lastReceiveTime;
@@ -56,12 +46,12 @@ public class ENetPeer extends ENetList
 	int outgoingBandwidth;
 	int outgoingBandwidthThrottleEpoch;
 	int outgoingDataTotal;
-	int outgoingPeerID;
+	ushort outgoingPeerID;
 	ENetList outgoingReliableCommands;
-	private int outgoingReliableSequenceNumber;
+	ushort outgoingReliableSequenceNumber;
 	byte outgoingSessionID;
 	ENetList outgoingUnreliableCommands;
-	int outgoingUnsequencedGroup;
+	ushort outgoingUnsequencedGroup;
 	int packetLoss;
 	int packetLossEpoch;
 	int packetLossVariance;

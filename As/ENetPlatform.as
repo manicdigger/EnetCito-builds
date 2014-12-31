@@ -31,7 +31,7 @@ package
 			throw "Abstract method called";
 		}
 
-		public function eNET_HOST_TO_NET_16(p : int) : int
+		public function eNET_HOST_TO_NET_16(p : ushort) : ushort
 		{
 			throw "Abstract method called";
 		}
@@ -41,12 +41,17 @@ package
 			throw "Abstract method called";
 		}
 
-		public function eNET_NET_TO_HOST_16(p : int) : int
+		public function eNET_NET_TO_HOST_16(p : ushort) : ushort
 		{
 			throw "Abstract method called";
 		}
 
 		public function eNET_NET_TO_HOST_32(fragmentOffset : int) : int
+		{
+			throw "Abstract method called";
+		}
+
+		public function intToUshort(p : int) : ushort
 		{
 			throw "Abstract method called";
 		}

@@ -53,7 +53,7 @@ package
 		/** @private */
 		internal var dispatchQueue : ENetList;
 		/** @private */
-		internal var headerFlags : int;
+		internal var headerFlags : ushort;
 		/** @private */
 		internal var incomingBandwidth : int;
 		/** @private */

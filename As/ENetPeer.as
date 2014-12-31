@@ -15,16 +15,6 @@ package
 			this.dispatchedCommands = new ENetList();
 			this.unsequencedWindow = new Array(32);
 		}
-
-		public final function getOutgoingReliableSequenceNumber() : int
-		{
-			return this.outgoingReliableSequenceNumber;
-		}
-
-		public final function setOutgoingReliableSequenceNumber(value : int) : void
-		{
-			this.outgoingReliableSequenceNumber = value % 65536;
-		}
 		/** @private */
 		internal var acknowledgements : ENetList;
 		/** @private */
@@ -60,7 +50,7 @@ package
 		/** @private */
 		internal var incomingDataTotal : int;
 		/** @private */
-		internal var incomingPeerID : int;
+		internal var incomingPeerID : ushort;
 		/** @private */
 		internal var incomingSessionID : int;
 		/** @private */
@@ -88,16 +78,17 @@ package
 		/** @private */
 		internal var outgoingDataTotal : int;
 		/** @private */
-		internal var outgoingPeerID : int;
+		internal var outgoingPeerID : ushort;
 		/** @private */
 		internal var outgoingReliableCommands : ENetList;
-		private var outgoingReliableSequenceNumber : int;
+		/** @private */
+		internal var outgoingReliableSequenceNumber : ushort;
 		/** @private */
 		internal var outgoingSessionID : int;
 		/** @private */
 		internal var outgoingUnreliableCommands : ENetList;
 		/** @private */
-		internal var outgoingUnsequencedGroup : int;
+		internal var outgoingUnsequencedGroup : ushort;
 		/** @private */
 		internal var packetLoss : int;
 		/** @private */

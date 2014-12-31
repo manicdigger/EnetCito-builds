@@ -196,7 +196,7 @@ public class ENet
 	public static final int E_N_E_T__H_O_S_T__R_E_C_E_I_V_E__B_U_F_F_E_R__S_I_Z_E = 262144;
 	public static final int E_N_E_T__H_O_S_T__S_E_N_D__B_U_F_F_E_R__S_I_Z_E = 262144;
 
-	private int eNET_HOST_TO_NET_16(int a)
+	private ushort eNET_HOST_TO_NET_16(ushort a)
 	{
 		return this.p.eNET_HOST_TO_NET_16(a);
 	}
@@ -216,7 +216,7 @@ public class ENet
 		return x < y ? x : y;
 	}
 
-	private int eNET_NET_TO_HOST_16(int a)
+	private ushort eNET_NET_TO_HOST_16(ushort a)
 	{
 		return this.p.eNET_NET_TO_HOST_16(a);
 	}
@@ -350,12 +350,12 @@ public class ENet
 		return n;
 	}
 
-	private int readShort(byte[] readBuf, int readPos)
+	private ushort readShort(byte[] readBuf, int readPos)
 	{
 		int n = (readBuf[readPos + 1] & 0xff) << 8;
 		n |= readBuf[readPos + 0] & 0xff;
 		readPos += 2;
-		return n;
+		return this.p.intToUshort(n);
 	}
 	public static final int S_O_C_K_E_T__E_R_R_O_R = -1;
 
@@ -482,7 +482,7 @@ public class ENet
 
 	private int toUint16(int a)
 	{
-		return a;
+		return this.p.intToUshort(a);
 	}
 
 	private void writeByte(byte[] data, int[] pos, int value)
@@ -794,7 +794,7 @@ public class ENet
 			currentPeer.windowSize = 32768;
 		for (int i = 0; i < channelCount; i++) {
 			channel = currentPeer.channels[i];
-			channel.setOutgoingReliableSequenceNumber(0);
+			channel.outgoingReliableSequenceNumber = 0;
 			channel.outgoingUnreliableSequenceNumber = 0;
 			channel.incomingReliableSequenceNumber = 0;
 			channel.incomingUnreliableSequenceNumber = 0;
@@ -903,7 +903,7 @@ public class ENet
 		for (int i = 0; i < host.peerCount; i++) {
 			currentPeer = host.peers[i];
 			currentPeer.host = host;
-			currentPeer.incomingPeerID = i;
+			currentPeer.incomingPeerID = this.p.intToUshort(i);
 			currentPeer.outgoingSessionID = currentPeer.incomingSessionID = -1;
 			currentPeer.data = null;
 			this.enet_list_clear(currentPeer.acknowledgements);
@@ -1256,7 +1256,7 @@ public class ENet
 		ENetListNode currentCommand;
 		for (currentCommand = this.enet_list_begin(channel.incomingReliableCommands); currentCommand != this.enet_list_end(channel.incomingReliableCommands); currentCommand = this.enet_list_next(currentCommand)) {
 			ENetIncomingCommand incomingCommand = this.p.castToENetIncomingCommand(currentCommand);
-			if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != channel.incomingReliableSequenceNumber + 1)
+			if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != this.p.intToUshort(channel.incomingReliableSequenceNumber + 1))
 				break;
 			channel.incomingReliableSequenceNumber = incomingCommand.reliableSequenceNumber;
 			if (incomingCommand.fragmentCount > 0)
@@ -1300,8 +1300,8 @@ public class ENet
 					droppedCommand = this.enet_list_previous(currentCommand);
 			}
 			else {
-				int reliableWindow = incomingCommand.reliableSequenceNumber / 4096;
-				int currentWindow = channel.incomingReliableSequenceNumber / 4096;
+				ushort reliableWindow = this.p.intToUshort(incomingCommand.reliableSequenceNumber / 4096);
+				ushort currentWindow = this.p.intToUshort(channel.incomingReliableSequenceNumber / 4096);
 				if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 					reliableWindow += 16;
 				if (reliableWindow >= currentWindow && reliableWindow < currentWindow + 8 - 1)
@@ -1377,13 +1377,13 @@ public class ENet
 		peer.pingInterval = pingInterval != 0 ? pingInterval : 500;
 	}
 
-	private ENetAcknowledgement enet_peer_queue_acknowledgement(ENetPeer peer, ENetProtocol command, int sentTime)
+	private ENetAcknowledgement enet_peer_queue_acknowledgement(ENetPeer peer, ENetProtocol command, ushort sentTime)
 	{
 		ENetAcknowledgement acknowledgement;
 		if ((command.header.channelID & 0xff) < peer.channelCount) {
 			ENetChannel channel = peer.channels[command.header.channelID & 0xff];
-			int reliableWindow = command.header.reliableSequenceNumber / 4096;
-			int currentWindow = channel.incomingReliableSequenceNumber / 4096;
+			ushort reliableWindow = this.p.intToUshort(command.header.reliableSequenceNumber / 4096);
+			ushort currentWindow = this.p.intToUshort(channel.incomingReliableSequenceNumber / 4096);
 			if (command.header.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 				reliableWindow += 16;
 			if (reliableWindow >= currentWindow + 8 - 1 && reliableWindow <= currentWindow + 8)
@@ -1477,7 +1477,7 @@ public class ENet
 		if (incomingCommand == null)
 			return this.notifyError(packet);
 		incomingCommand.reliableSequenceNumber = command.header.reliableSequenceNumber;
-		incomingCommand.unreliableSequenceNumber = unreliableSequenceNumber & 65535;
+		incomingCommand.unreliableSequenceNumber = this.p.intToUshort(unreliableSequenceNumber & 65535);
 		incomingCommand.command = command;
 		incomingCommand.fragmentCount = fragmentCount;
 		incomingCommand.fragmentsRemaining = fragmentCount;
@@ -1508,7 +1508,7 @@ public class ENet
 		return incomingCommand;
 	}
 
-	private ENetOutgoingCommand enet_peer_queue_outgoing_command(ENetPeer peer, ENetProtocol command, ENetPacket packet, int offset, int length)
+	private ENetOutgoingCommand enet_peer_queue_outgoing_command(ENetPeer peer, ENetProtocol command, ENetPacket packet, int offset, ushort length)
 	{
 		ENetOutgoingCommand outgoingCommand = new ENetOutgoingCommand();
 		if (outgoingCommand == null)
@@ -1608,7 +1608,7 @@ public class ENet
 		peer.roundTripTimeVariance = 0;
 		peer.mtu = peer.host.mtu;
 		peer.reliableDataInTransit = 0;
-		peer.setOutgoingReliableSequenceNumber(0);
+		peer.outgoingReliableSequenceNumber = 0;
 		peer.windowSize = 32768;
 		peer.incomingUnsequencedGroup = 0;
 		peer.outgoingUnsequencedGroup = 0;
@@ -1686,18 +1686,18 @@ public class ENet
 			int fragmentNumber;
 			int fragmentOffset;
 			byte commandNumber;
-			int startSequenceNumber;
+			ushort startSequenceNumber;
 			ENetList fragments = null;
 			ENetOutgoingCommand fragment;
 			if (fragmentCount > 1048576)
 				return -1;
 			if ((packet.flags & 9) == 8 && channel.outgoingUnreliableSequenceNumber < 65535) {
 				commandNumber = 12;
-				startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.outgoingUnreliableSequenceNumber + 1);
+				startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingUnreliableSequenceNumber + 1));
 			}
 			else {
 				commandNumber = -120;
-				startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.getOutgoingReliableSequenceNumber() + 1);
+				startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingReliableSequenceNumber + 1));
 			}
 			this.enet_list_clear(fragments);
 			fragmentNumber = 0;
@@ -1713,12 +1713,12 @@ public class ENet
 					return -1;
 				}
 				fragment.fragmentOffset = fragmentOffset;
-				fragment.fragmentLength = fragmentLength;
+				fragment.fragmentLength = this.p.intToUshort(fragmentLength);
 				fragment.packet = packet;
 				fragment.command.header.command = commandNumber;
 				fragment.command.header.channelID = channelID;
 				fragment.command.sendFragment.startSequenceNumber = startSequenceNumber;
-				fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(fragmentLength);
+				fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(fragmentLength));
 				fragment.command.sendFragment.fragmentCount = this.p.eNET_HOST_TO_NET_32(fragmentCount);
 				fragment.command.sendFragment.fragmentNumber = this.p.eNET_HOST_TO_NET_32(fragmentNumber);
 				fragment.command.sendFragment.totalLength = this.p.eNET_HOST_TO_NET_32(packet.dataLength);
@@ -1737,19 +1737,19 @@ public class ENet
 		command.header.channelID = channelID;
 		if ((packet.flags & 3) == 2) {
 			command.header.command = 73;
-			command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+			command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 		}
 		else if ((packet.flags & 1) != 0 || channel.outgoingUnreliableSequenceNumber >= 65535) {
 			command.header.command = -122;
 			command.sendReliable = new ENetProtocolSendReliable();
-			command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+			command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 		}
 		else {
 			command.header.command = 7;
 			command.sendUnreliable = new ENetProtocolSendUnreliable();
-			command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+			command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 		}
-		if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, packet.dataLength) == null)
+		if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, this.p.intToUshort(packet.dataLength)) == null)
 			return -1;
 		return 0;
 	}
@@ -1758,17 +1758,17 @@ public class ENet
 	{
 		ENetChannel channel = null;
 		peer.outgoingDataTotal += this.enet_protocol_command_size(outgoingCommand.command.header.command) + outgoingCommand.fragmentLength;
-		if (outgoingCommand.command.header.channelID == -1) {
-			peer.setOutgoingReliableSequenceNumber(peer.getOutgoingReliableSequenceNumber() + 1);
-			outgoingCommand.reliableSequenceNumber = peer.getOutgoingReliableSequenceNumber();
+		if ((outgoingCommand.command.header.channelID & 0xff) == 255) {
+			peer.outgoingReliableSequenceNumber++;
+			outgoingCommand.reliableSequenceNumber = peer.outgoingReliableSequenceNumber;
 			outgoingCommand.unreliableSequenceNumber = 0;
 		}
 		else {
 			channel = peer.channels[outgoingCommand.command.header.channelID & 0xff];
 			if ((outgoingCommand.command.header.command & 128) != 0) {
-				channel.setOutgoingReliableSequenceNumber(channel.getOutgoingReliableSequenceNumber() + 1);
+				channel.outgoingReliableSequenceNumber++;
 				channel.outgoingUnreliableSequenceNumber = 0;
-				outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+				outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 				outgoingCommand.unreliableSequenceNumber = 0;
 			}
 			else if ((outgoingCommand.command.header.command & 64) != 0) {
@@ -1779,7 +1779,7 @@ public class ENet
 			else {
 				if (outgoingCommand.fragmentOffset == 0)
 					channel.outgoingUnreliableSequenceNumber++;
-				outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+				outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 				outgoingCommand.unreliableSequenceNumber = channel.outgoingUnreliableSequenceNumber;
 			}
 		}
@@ -2026,7 +2026,7 @@ public class ENet
 			peer.packetThrottleEpoch = host.serviceTime;
 		}
 		receivedReliableSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.acknowledge.receivedReliableSequenceNumber);
-		commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, receivedReliableSequenceNumber, command.header.channelID);
+		commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, this.p.intToUshort(receivedReliableSequenceNumber), command.header.channelID);
 		switch (peer.state) {
 		case 2:
 			if (commandNumber != 3)
@@ -2114,19 +2114,19 @@ public class ENet
 		currentPeer.packetThrottleAcceleration = this.p.eNET_NET_TO_HOST_32(command.connect.packetThrottleAcceleration);
 		currentPeer.packetThrottleDeceleration = this.p.eNET_NET_TO_HOST_32(command.connect.packetThrottleDeceleration);
 		currentPeer.eventData = this.p.eNET_NET_TO_HOST_32(command.connect.data);
-		incomingSessionID = command.connect.incomingSessionID == -1 ? currentPeer.outgoingSessionID : command.connect.incomingSessionID;
+		incomingSessionID = (command.connect.incomingSessionID & 0xff) == 255 ? currentPeer.outgoingSessionID : command.connect.incomingSessionID;
 		incomingSessionID = ENet.toByte((incomingSessionID & 0xff) + 1 & 3);
 		if (incomingSessionID == currentPeer.outgoingSessionID)
 			incomingSessionID = ENet.toByte((incomingSessionID & 0xff) + 1 & 3);
 		currentPeer.outgoingSessionID = incomingSessionID;
-		outgoingSessionID = command.connect.outgoingSessionID == -1 ? currentPeer.incomingSessionID : command.connect.outgoingSessionID;
+		outgoingSessionID = (command.connect.outgoingSessionID & 0xff) == 255 ? currentPeer.incomingSessionID : command.connect.outgoingSessionID;
 		outgoingSessionID = ENet.toByte((outgoingSessionID & 0xff) + 1 & 3);
 		if (outgoingSessionID == currentPeer.incomingSessionID)
 			outgoingSessionID = ENet.toByte((outgoingSessionID & 0xff) + 1 & 3);
 		currentPeer.incomingSessionID = outgoingSessionID;
 		for (i = 0; i < currentPeer.channelCount; i++) {
 			channel = currentPeer.channels[i];
-			channel.setOutgoingReliableSequenceNumber(0);
+			channel.outgoingReliableSequenceNumber = 0;
 			channel.outgoingUnreliableSequenceNumber = 0;
 			channel.incomingReliableSequenceNumber = 0;
 			channel.incomingUnreliableSequenceNumber = 0;
@@ -2211,16 +2211,16 @@ public class ENet
 		ENetPeer peer;
 		byte[] currentData = null;
 		int headerSize = 0;
-		int peerID;
-		int flags;
+		ushort peerID;
+		ushort flags;
 		int sessionID;
 		int[] currentDataI = new int[1];
 		currentDataI[0] = 0;
 		header = this.deserialize(host.receivedData);
 		peerID = this.eNET_NET_TO_HOST_16(header.peerID);
 		sessionID = (peerID & 12288) >> 12;
-		flags = peerID & 49152;
-		peerID &= ~61440;
+		flags = this.p.intToUshort(peerID & 49152);
+		peerID &= this.p.intToUshort(~61440);
 		headerSize = (flags & 32768) != 0 ? 4 : 2;
 		if (host.checksum != null)
 			headerSize += 4;
@@ -2269,7 +2269,7 @@ public class ENet
 				break;
 			command = this.deserializeProtocolCommandHeader(host.receivedData, currentDataI[0]);
 			commandNumber = ENet.toByte(command.header.command & 15);
-			if (commandNumber == 0) {
+			if ((commandNumber & 0xff) == 0) {
 			}
 			if ((commandNumber & 0xff) >= 13)
 				break;
@@ -2342,7 +2342,7 @@ public class ENet
 				return this.commandError(event_);
 			}
 			if (peer != null && (command.header.command & 128) != 0) {
-				int sentTime;
+				ushort sentTime;
 				if ((flags & 32768) == 0)
 					break;
 				sentTime = this.eNET_NET_TO_HOST_16(header.sentTime);
@@ -2384,8 +2384,8 @@ public class ENet
 		int startSequenceNumber;
 		int totalLength;
 		ENetChannel channel;
-		int startWindow;
-		int currentWindow;
+		ushort startWindow;
+		ushort currentWindow;
 		ENetListNode currentCommand;
 		ENetIncomingCommand startCommand = null;
 		if ((command.header.channelID & 0xff) >= peer.channelCount || peer.state != 5 && peer.state != 6)
@@ -2396,8 +2396,8 @@ public class ENet
 			return -1;
 		channel = peer.channels[command.header.channelID & 0xff];
 		startSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-		startWindow = startSequenceNumber / 4096;
-		currentWindow = channel.incomingReliableSequenceNumber / 4096;
+		startWindow = this.p.intToUshort(startSequenceNumber / 4096);
+		currentWindow = this.p.intToUshort(channel.incomingReliableSequenceNumber / 4096);
 		if (startSequenceNumber < channel.incomingReliableSequenceNumber)
 			startWindow += 16;
 		if (startWindow < currentWindow || startWindow >= currentWindow + 8 - 1)
@@ -2430,7 +2430,7 @@ public class ENet
 			ENetPacket packet = this.enet_packet_create(null, totalLength, 1);
 			if (packet == null)
 				return -1;
-			hostCommand.header.reliableSequenceNumber = startSequenceNumber;
+			hostCommand.header.reliableSequenceNumber = this.p.intToUshort(startSequenceNumber);
 			startCommand = this.enet_peer_queue_incoming_command(peer, hostCommand, packet, fragmentCount);
 			if (startCommand == null)
 				return -1;
@@ -2500,8 +2500,8 @@ public class ENet
 		int reliableSequenceNumber;
 		int startSequenceNumber;
 		int totalLength;
-		int reliableWindow;
-		int currentWindow;
+		ushort reliableWindow;
+		ushort currentWindow;
 		ENetChannel channel;
 		ENetListNode currentCommand;
 		ENetIncomingCommand startCommand = null;
@@ -2515,8 +2515,8 @@ public class ENet
 		channel = peer.channels[command.header.channelID & 0xff];
 		reliableSequenceNumber = command.header.reliableSequenceNumber;
 		startSequenceNumber = this.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-		reliableWindow = reliableSequenceNumber / 4096;
-		currentWindow = channel.incomingReliableSequenceNumber / 4096;
+		reliableWindow = this.p.intToUshort(reliableSequenceNumber / 4096);
+		currentWindow = this.p.intToUshort(channel.incomingReliableSequenceNumber / 4096);
 		if (reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 			reliableWindow += 16;
 		if (reliableWindow < currentWindow || reliableWindow >= currentWindow + 8 - 1)
@@ -2698,7 +2698,7 @@ public class ENet
 		}
 	}
 
-	public final int enet_protocol_remove_sent_reliable_command(ENetPeer peer, int reliableSequenceNumber, byte channelID)
+	public final int enet_protocol_remove_sent_reliable_command(ENetPeer peer, ushort reliableSequenceNumber, byte channelID)
 	{
 		ENetOutgoingCommand outgoingCommand = null;
 		ENetListNode currentCommand;
@@ -2725,7 +2725,7 @@ public class ENet
 			return 0;
 		if ((channelID & 0xff) < peer.channelCount) {
 			ENetChannel channel = peer.channels[channelID & 0xff];
-			int reliableWindow = reliableSequenceNumber / 4096;
+			ushort reliableWindow = this.p.intToUshort(reliableSequenceNumber / 4096);
 			if (channel.reliableWindows[reliableWindow] > 0) {
 				channel.reliableWindows[reliableWindow]--;
 				if (channel.reliableWindows[reliableWindow] == 0)
@@ -2772,7 +2772,7 @@ public class ENet
 		int bufferI = host.bufferCount;
 		ENetAcknowledgement acknowledgement;
 		ENetListNode currentAcknowledgement;
-		int reliableSequenceNumber;
+		ushort reliableSequenceNumber;
 		currentAcknowledgement = this.enet_list_begin(peer.acknowledgements);
 		while (currentAcknowledgement != this.enet_list_end(peer.acknowledgements)) {
 			if (commandI >= 32 || bufferI >= 65 || peer.mtu - host.packetSize < 8) {
@@ -2789,7 +2789,7 @@ public class ENet
 			host.commands[commandI].header.reliableSequenceNumber = reliableSequenceNumber;
 			host.commands[commandI].acknowledge = new ENetProtocolAcknowledge();
 			host.commands[commandI].acknowledge.receivedReliableSequenceNumber = reliableSequenceNumber;
-			host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(acknowledgement.sentTime);
+			host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(acknowledgement.sentTime));
 			byte[] buf = new byte[128];
 			this.serializeCommand(buf, host.commands[commandI]);
 			host.buffers[bufferI].data = buf;
@@ -2860,7 +2860,7 @@ public class ENet
 				}
 				host.buffers[0].data = headerData;
 				if ((host.headerFlags & 32768) != 0) {
-					header.sentTime = this.eNET_HOST_TO_NET_16(host.serviceTime & 65535);
+					header.sentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(host.serviceTime & 65535));
 					host.buffers[0].dataLength = 4;
 				}
 				else {
@@ -2870,8 +2870,8 @@ public class ENet
 				if (host.compressor != null) {
 				}
 				if (currentPeer.outgoingPeerID < 4095)
-					host.headerFlags |= (currentPeer.outgoingSessionID & 0xff) << 12;
-				header.peerID = this.eNET_HOST_TO_NET_16(currentPeer.outgoingPeerID | host.headerFlags);
+					host.headerFlags |= this.p.intToUshort((currentPeer.outgoingSessionID & 0xff) << 12);
+				header.peerID = this.eNET_HOST_TO_NET_16(this.p.intToUshort(currentPeer.outgoingPeerID | host.headerFlags));
 				this.serializeHeader(headerData, header);
 				if (host.checksum != null) {
 				}
@@ -2899,7 +2899,7 @@ public class ENet
 		ENetOutgoingCommand outgoingCommand;
 		ENetListNode currentCommand;
 		ENetChannel channel;
-		int reliableWindow;
+		ushort reliableWindow;
 		int commandSize;
 		int windowExceeded = 0;
 		int windowWrap = 0;
@@ -2911,7 +2911,7 @@ public class ENet
 		while (currentCommand != this.enet_list_end(peer.outgoingReliableCommands)) {
 			outgoingCommand = this.p.castToENetOutgoingCommand(currentCommand);
 			channel = (outgoingCommand.command.header.channelID & 0xff) < peer.channelCount ? peer.channels[outgoingCommand.command.header.channelID & 0xff] : null;
-			reliableWindow = outgoingCommand.reliableSequenceNumber / 4096;
+			reliableWindow = this.p.intToUshort(outgoingCommand.reliableSequenceNumber / 4096);
 			if (channel != null) {
 				if (windowWrap == 0 && outgoingCommand.sendAttempts < 1 && outgoingCommand.reliableSequenceNumber % 4096 == 0 && (channel.reliableWindows[(reliableWindow + 16 - 1) % 16] >= 4096 || (channel.usedReliableWindows & (255 << reliableWindow | 255 >> 4096 - reliableWindow)) != 0))
 					windowWrap = 1;

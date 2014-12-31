@@ -18,7 +18,7 @@ package
 		/** @private */
 		internal var outgoingBandwidth : int;
 		/** @private */
-		internal var outgoingPeerID : int;
+		internal var outgoingPeerID : ushort;
 		/** @private */
 		internal var outgoingSessionID : int;
 		/** @private */

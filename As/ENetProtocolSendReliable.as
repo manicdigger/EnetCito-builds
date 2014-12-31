@@ -7,6 +7,6 @@ package
 	{
 		public static const SIZE_OF : int = 6;
 		/** @private */
-		internal var dataLength : int;
+		internal var dataLength : ushort;
 	}
 }

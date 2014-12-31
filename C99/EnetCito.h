@@ -47,7 +47,6 @@ typedef struct ENetProtocolThrottleConfigure ENetProtocolThrottleConfigure;
 typedef struct ENetProtocolVerifyConnect ENetProtocolVerifyConnect;
 typedef struct ENetSocket ENetSocket;
 typedef struct ENetSymbol ENetSymbol;
-typedef struct Test Test;
 
 Byte *Byte_New(void);
 void Byte_Delete(Byte *self);
@@ -505,7 +504,7 @@ void ENet_enet_protocol_notify_disconnect(ENet const *self, ENetHost *host, ENet
 
 int ENet_enet_protocol_receive_incoming_commands(ENet *self, ENetHost *host, ENetEvent *event_);
 
-int ENet_enet_protocol_remove_sent_reliable_command(ENet const *self, ENetPeer *peer, int reliableSequenceNumber, unsigned char channelID);
+int ENet_enet_protocol_remove_sent_reliable_command(ENet const *self, ENetPeer *peer, ushort reliableSequenceNumber, unsigned char channelID);
 
 void ENet_enet_protocol_remove_sent_unreliable_commands(ENet const *self, ENetPeer const *peer);
 
@@ -531,10 +530,6 @@ void ENetBuffer_Delete(ENetBuffer *self);
 ENetChannel *ENetChannel_New(void);
 void ENetChannel_Delete(ENetChannel *self);
 
-int ENetChannel_GetOutgoingReliableSequenceNumber(ENetChannel const *self);
-
-void ENetChannel_SetOutgoingReliableSequenceNumber(ENetChannel *self, int value);
-
 #define ENetChannel_RELIABLE_WINDOWS_LENGTH  16
 
 ENetEvent *ENetEvent_New(void);
@@ -553,6 +548,9 @@ ENetIncomingCommand *ENetIncomingCommand_New(void);
 void ENetIncomingCommand_Delete(ENetIncomingCommand *self);
 
 ENetListNode const *ENetIncomingCommand_incomingCommandList(ENetIncomingCommand const *self);
+
+ENetList *ENetList_New(void);
+void ENetList_Delete(ENetList *self);
 
 ENetObject const *ENetList_GetSentinel(ENetList const *self);
 
@@ -605,10 +603,6 @@ void ENetPacket_SetUserData(ENetPacket *self, UserData const *value);
 
 ENetPeer *ENetPeer_New(void);
 void ENetPeer_Delete(ENetPeer *self);
-
-int ENetPeer_GetOutgoingReliableSequenceNumber(ENetPeer const *self);
-
-void ENetPeer_SetOutgoingReliableSequenceNumber(ENetPeer *self, int value);
 
 #define ENetPeer_UNSEQUENCED_WINDOW_LENGTH  32
 
@@ -717,8 +711,6 @@ ENetSymbol *ENetSymbol_New(void);
 void ENetSymbol_Delete(ENetSymbol *self);
 
 bool Math_isLessThanUnsigned(int n1, int n2);
-
-void Test_f(Test const *self);
 
 #ifdef __cplusplus
 }

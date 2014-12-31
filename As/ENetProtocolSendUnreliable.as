@@ -7,8 +7,8 @@ package
 	{
 		public static const SIZE_OF : int = 12;
 		/** @private */
-		internal var dataLength : int;
+		internal var dataLength : ushort;
 		/** @private */
-		internal var unreliableSequenceNumber : int;
+		internal var unreliableSequenceNumber : ushort;
 	}
 }

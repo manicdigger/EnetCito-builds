@@ -6,8 +6,8 @@ package
 	public class ENetProtocolSendUnsequenced
 	{
 		/** @private */
-		internal var dataLength : int;
+		internal var dataLength : ushort;
 		/** @private */
-		internal var unsequencedGroup : int;
+		internal var unsequencedGroup : ushort;
 	}
 }

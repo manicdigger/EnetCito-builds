@@ -3,6 +3,6 @@ package enetcito.lib;
 
 public class ENetProtocolSendUnsequenced
 {
-	int dataLength;
-	int unsequencedGroup;
+	ushort dataLength;
+	ushort unsequencedGroup;
 }

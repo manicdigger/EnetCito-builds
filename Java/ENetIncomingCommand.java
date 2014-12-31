@@ -13,6 +13,6 @@ public class ENetIncomingCommand extends ENetListNode
 		return this;
 	}
 	ENetPacket packet;
-	int reliableSequenceNumber;
-	int unreliableSequenceNumber;
+	ushort reliableSequenceNumber;
+	ushort unreliableSequenceNumber;
 }

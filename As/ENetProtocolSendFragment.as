@@ -7,7 +7,7 @@ package
 	{
 		public static const SIZE_OF : int = 28;
 		/** @private */
-		internal var dataLength : int;
+		internal var dataLength : ushort;
 		/** @private */
 		internal var fragmentCount : int;
 		/** @private */
@@ -15,7 +15,7 @@ package
 		/** @private */
 		internal var fragmentOffset : int;
 		/** @private */
-		internal var startSequenceNumber : int;
+		internal var startSequenceNumber : ushort;
 		/** @private */
 		internal var totalLength : int;
 	}

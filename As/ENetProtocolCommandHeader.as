@@ -11,6 +11,6 @@ package
 		/** @private */
 		internal var command : int;
 		/** @private */
-		internal var reliableSequenceNumber : int;
+		internal var reliableSequenceNumber : ushort;
 	}
 }

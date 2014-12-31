@@ -4,7 +4,7 @@ package enetcito.lib;
 public class ENetOutgoingCommand extends ENetListNode
 {
 	ENetProtocol command;
-	int fragmentLength;
+	ushort fragmentLength;
 	int fragmentOffset;
 
 	public final ENetListNode outgoingCommandList()
@@ -12,10 +12,10 @@ public class ENetOutgoingCommand extends ENetListNode
 		return this;
 	}
 	ENetPacket packet;
-	int reliableSequenceNumber;
+	ushort reliableSequenceNumber;
 	int roundTripTimeout;
 	int roundTripTimeoutLimit;
-	int sendAttempts;
+	ushort sendAttempts;
 	int sentTime;
-	int unreliableSequenceNumber;
+	ushort unreliableSequenceNumber;
 }

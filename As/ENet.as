@@ -198,7 +198,7 @@ package
 		public static const E_N_E_T__H_O_S_T__R_E_C_E_I_V_E__B_U_F_F_E_R__S_I_Z_E : int = 262144;
 		public static const E_N_E_T__H_O_S_T__S_E_N_D__B_U_F_F_E_R__S_I_Z_E : int = 262144;
 
-		private function eNET_HOST_TO_NET_16(a : int) : int
+		private function eNET_HOST_TO_NET_16(a : ushort) : ushort
 		{
 			return this.p.eNET_HOST_TO_NET_16(a);
 		}
@@ -218,7 +218,7 @@ package
 			return x < y ? x : y;
 		}
 
-		private function eNET_NET_TO_HOST_16(a : int) : int
+		private function eNET_NET_TO_HOST_16(a : ushort) : ushort
 		{
 			return this.p.eNET_NET_TO_HOST_16(a);
 		}
@@ -352,12 +352,12 @@ package
 			return n;
 		}
 
-		private function readShort(readBuf : ByteArray, readPos : int) : int
+		private function readShort(readBuf : ByteArray, readPos : int) : ushort
 		{
 			var n : int = readBuf[readPos + 1] << 8;
 			n |= readBuf[readPos + 0];
 			readPos += 2;
-			return n;
+			return this.p.intToUshort(n);
 		}
 		public static const S_O_C_K_E_T__E_R_R_O_R : int = -1;
 
@@ -484,7 +484,7 @@ package
 
 		private function toUint16(a : int) : int
 		{
-			return a;
+			return this.p.intToUshort(a);
 		}
 
 		private function writeByte(data : ByteArray, pos : Array, value : int) : void
@@ -796,7 +796,7 @@ package
 				currentPeer.windowSize = 32768;
 			for (var i : int = 0; i < channelCount; i++) {
 				channel = currentPeer.channels[i];
-				channel.setOutgoingReliableSequenceNumber(0);
+				channel.outgoingReliableSequenceNumber = 0;
 				channel.outgoingUnreliableSequenceNumber = 0;
 				channel.incomingReliableSequenceNumber = 0;
 				channel.incomingUnreliableSequenceNumber = 0;
@@ -905,7 +905,7 @@ package
 			for (var i : int = 0; i < host.peerCount; i++) {
 				currentPeer = host.peers[i];
 				currentPeer.host = host;
-				currentPeer.incomingPeerID = i;
+				currentPeer.incomingPeerID = this.p.intToUshort(i);
 				currentPeer.outgoingSessionID = currentPeer.incomingSessionID = 255;
 				currentPeer.data = null;
 				this.enet_list_clear(currentPeer.acknowledgements);
@@ -1258,7 +1258,7 @@ package
 			var currentCommand : ENetListNode;
 			for (currentCommand = this.enet_list_begin(channel.incomingReliableCommands); currentCommand != this.enet_list_end(channel.incomingReliableCommands); currentCommand = this.enet_list_next(currentCommand)) {
 				var incomingCommand : ENetIncomingCommand = this.p.castToENetIncomingCommand(currentCommand);
-				if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != channel.incomingReliableSequenceNumber + 1)
+				if (incomingCommand.fragmentsRemaining > 0 || incomingCommand.reliableSequenceNumber != this.p.intToUshort(channel.incomingReliableSequenceNumber + 1))
 					break;
 				channel.incomingReliableSequenceNumber = incomingCommand.reliableSequenceNumber;
 				if (incomingCommand.fragmentCount > 0)
@@ -1302,8 +1302,8 @@ package
 						droppedCommand = this.enet_list_previous(currentCommand);
 				}
 				else {
-					var reliableWindow : int = int(incomingCommand.reliableSequenceNumber / 4096);
-					var currentWindow : int = int(channel.incomingReliableSequenceNumber / 4096);
+					var reliableWindow : ushort = this.p.intToUshort(int(incomingCommand.reliableSequenceNumber / 4096));
+					var currentWindow : ushort = this.p.intToUshort(int(channel.incomingReliableSequenceNumber / 4096));
 					if (incomingCommand.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 						reliableWindow += 16;
 					if (reliableWindow >= currentWindow && reliableWindow < currentWindow + 8 - 1)
@@ -1379,13 +1379,13 @@ package
 			peer.pingInterval = pingInterval != 0 ? pingInterval : 500;
 		}
 
-		private function enet_peer_queue_acknowledgement(peer : ENetPeer, command : ENetProtocol, sentTime : int) : ENetAcknowledgement
+		private function enet_peer_queue_acknowledgement(peer : ENetPeer, command : ENetProtocol, sentTime : ushort) : ENetAcknowledgement
 		{
 			var acknowledgement : ENetAcknowledgement;
 			if (command.header.channelID < peer.channelCount) {
 				var channel : ENetChannel = peer.channels[command.header.channelID];
-				var reliableWindow : int = int(command.header.reliableSequenceNumber / 4096);
-				var currentWindow : int = int(channel.incomingReliableSequenceNumber / 4096);
+				var reliableWindow : ushort = this.p.intToUshort(int(command.header.reliableSequenceNumber / 4096));
+				var currentWindow : ushort = this.p.intToUshort(int(channel.incomingReliableSequenceNumber / 4096));
 				if (command.header.reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 					reliableWindow += 16;
 				if (reliableWindow >= currentWindow + 8 - 1 && reliableWindow <= currentWindow + 8)
@@ -1479,7 +1479,7 @@ package
 			if (incomingCommand == null)
 				return this.notifyError(packet);
 			incomingCommand.reliableSequenceNumber = command.header.reliableSequenceNumber;
-			incomingCommand.unreliableSequenceNumber = unreliableSequenceNumber & 65535;
+			incomingCommand.unreliableSequenceNumber = this.p.intToUshort(unreliableSequenceNumber & 65535);
 			incomingCommand.command = command;
 			incomingCommand.fragmentCount = fragmentCount;
 			incomingCommand.fragmentsRemaining = fragmentCount;
@@ -1510,7 +1510,7 @@ package
 			return incomingCommand;
 		}
 
-		private function enet_peer_queue_outgoing_command(peer : ENetPeer, command : ENetProtocol, packet : ENetPacket, offset : int, length : int) : ENetOutgoingCommand
+		private function enet_peer_queue_outgoing_command(peer : ENetPeer, command : ENetProtocol, packet : ENetPacket, offset : int, length : ushort) : ENetOutgoingCommand
 		{
 			var outgoingCommand : ENetOutgoingCommand = new ENetOutgoingCommand();
 			if (outgoingCommand == null)
@@ -1610,7 +1610,7 @@ package
 			peer.roundTripTimeVariance = 0;
 			peer.mtu = peer.host.mtu;
 			peer.reliableDataInTransit = 0;
-			peer.setOutgoingReliableSequenceNumber(0);
+			peer.outgoingReliableSequenceNumber = 0;
 			peer.windowSize = 32768;
 			peer.incomingUnsequencedGroup = 0;
 			peer.outgoingUnsequencedGroup = 0;
@@ -1688,18 +1688,18 @@ package
 				var fragmentNumber : int;
 				var fragmentOffset : int;
 				var commandNumber : int;
-				var startSequenceNumber : int;
+				var startSequenceNumber : ushort;
 				var fragments : ENetList = null;
 				var fragment : ENetOutgoingCommand;
 				if (fragmentCount > 1048576)
 					return -1;
 				if ((packet.flags & 9) == 8 && channel.outgoingUnreliableSequenceNumber < 65535) {
 					commandNumber = 12;
-					startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.outgoingUnreliableSequenceNumber + 1);
+					startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingUnreliableSequenceNumber + 1));
 				}
 				else {
 					commandNumber = 136;
-					startSequenceNumber = this.p.eNET_HOST_TO_NET_16(channel.getOutgoingReliableSequenceNumber() + 1);
+					startSequenceNumber = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(channel.outgoingReliableSequenceNumber + 1));
 				}
 				this.enet_list_clear(fragments);
 				fragmentNumber = 0;
@@ -1715,12 +1715,12 @@ package
 						return -1;
 					}
 					fragment.fragmentOffset = fragmentOffset;
-					fragment.fragmentLength = fragmentLength;
+					fragment.fragmentLength = this.p.intToUshort(fragmentLength);
 					fragment.packet = packet;
 					fragment.command.header.command = commandNumber;
 					fragment.command.header.channelID = channelID;
 					fragment.command.sendFragment.startSequenceNumber = startSequenceNumber;
-					fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(fragmentLength);
+					fragment.command.sendFragment.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(fragmentLength));
 					fragment.command.sendFragment.fragmentCount = this.p.eNET_HOST_TO_NET_32(fragmentCount);
 					fragment.command.sendFragment.fragmentNumber = this.p.eNET_HOST_TO_NET_32(fragmentNumber);
 					fragment.command.sendFragment.totalLength = this.p.eNET_HOST_TO_NET_32(packet.dataLength);
@@ -1739,19 +1739,19 @@ package
 			command.header.channelID = channelID;
 			if ((packet.flags & 3) == 2) {
 				command.header.command = 73;
-				command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+				command.sendUnsequenced.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 			}
 			else if ((packet.flags & 1) != 0 || channel.outgoingUnreliableSequenceNumber >= 65535) {
 				command.header.command = 134;
 				command.sendReliable = new ENetProtocolSendReliable();
-				command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+				command.sendReliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 			}
 			else {
 				command.header.command = 7;
 				command.sendUnreliable = new ENetProtocolSendUnreliable();
-				command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(packet.dataLength);
+				command.sendUnreliable.dataLength = this.p.eNET_HOST_TO_NET_16(this.p.intToUshort(packet.dataLength));
 			}
-			if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, packet.dataLength) == null)
+			if (this.enet_peer_queue_outgoing_command(peer, command, packet, 0, this.p.intToUshort(packet.dataLength)) == null)
 				return -1;
 			return 0;
 		}
@@ -1761,16 +1761,16 @@ package
 			var channel : ENetChannel = null;
 			peer.outgoingDataTotal += this.enet_protocol_command_size(outgoingCommand.command.header.command) + outgoingCommand.fragmentLength;
 			if (outgoingCommand.command.header.channelID == 255) {
-				peer.setOutgoingReliableSequenceNumber(peer.getOutgoingReliableSequenceNumber() + 1);
-				outgoingCommand.reliableSequenceNumber = peer.getOutgoingReliableSequenceNumber();
+				peer.outgoingReliableSequenceNumber++;
+				outgoingCommand.reliableSequenceNumber = peer.outgoingReliableSequenceNumber;
 				outgoingCommand.unreliableSequenceNumber = 0;
 			}
 			else {
 				channel = peer.channels[outgoingCommand.command.header.channelID];
 				if ((outgoingCommand.command.header.command & 128) != 0) {
-					channel.setOutgoingReliableSequenceNumber(channel.getOutgoingReliableSequenceNumber() + 1);
+					channel.outgoingReliableSequenceNumber++;
 					channel.outgoingUnreliableSequenceNumber = 0;
-					outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+					outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 					outgoingCommand.unreliableSequenceNumber = 0;
 				}
 				else if ((outgoingCommand.command.header.command & 64) != 0) {
@@ -1781,7 +1781,7 @@ package
 				else {
 					if (outgoingCommand.fragmentOffset == 0)
 						channel.outgoingUnreliableSequenceNumber++;
-					outgoingCommand.reliableSequenceNumber = channel.getOutgoingReliableSequenceNumber();
+					outgoingCommand.reliableSequenceNumber = channel.outgoingReliableSequenceNumber;
 					outgoingCommand.unreliableSequenceNumber = channel.outgoingUnreliableSequenceNumber;
 				}
 			}
@@ -2028,7 +2028,7 @@ package
 				peer.packetThrottleEpoch = host.serviceTime;
 			}
 			receivedReliableSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.acknowledge.receivedReliableSequenceNumber);
-			commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, receivedReliableSequenceNumber, command.header.channelID);
+			commandNumber = this.enet_protocol_remove_sent_reliable_command(peer, this.p.intToUshort(receivedReliableSequenceNumber), command.header.channelID);
 			switch (peer.state) {
 			case 2:
 				if (commandNumber != 3)
@@ -2128,7 +2128,7 @@ package
 			currentPeer.incomingSessionID = outgoingSessionID;
 			for (i = 0; i < currentPeer.channelCount; i++) {
 				channel = currentPeer.channels[i];
-				channel.setOutgoingReliableSequenceNumber(0);
+				channel.outgoingReliableSequenceNumber = 0;
 				channel.outgoingUnreliableSequenceNumber = 0;
 				channel.incomingReliableSequenceNumber = 0;
 				channel.incomingUnreliableSequenceNumber = 0;
@@ -2213,16 +2213,16 @@ package
 			var peer : ENetPeer;
 			var currentData : ByteArray = null;
 			var headerSize : int = 0;
-			var peerID : int;
-			var flags : int;
+			var peerID : ushort;
+			var flags : ushort;
 			var sessionID : int;
 			var currentDataI : Array = new Array(1);
 			currentDataI[0] = 0;
 			header = this.deserialize(host.receivedData);
 			peerID = this.eNET_NET_TO_HOST_16(header.peerID);
 			sessionID = (peerID & 12288) >> 12;
-			flags = peerID & 49152;
-			peerID &= ~61440;
+			flags = this.p.intToUshort(peerID & 49152);
+			peerID &= this.p.intToUshort(~61440);
 			headerSize = (flags & 32768) != 0 ? 4 : 2;
 			if (host.checksum != null)
 				headerSize += 4;
@@ -2344,7 +2344,7 @@ package
 					return this.commandError(event_);
 				}
 				if (peer != null && (command.header.command & 128) != 0) {
-					var sentTime : int;
+					var sentTime : ushort;
 					if ((flags & 32768) == 0)
 						break;
 					sentTime = this.eNET_NET_TO_HOST_16(header.sentTime);
@@ -2386,8 +2386,8 @@ package
 			var startSequenceNumber : int;
 			var totalLength : int;
 			var channel : ENetChannel;
-			var startWindow : int;
-			var currentWindow : int;
+			var startWindow : ushort;
+			var currentWindow : ushort;
 			var currentCommand : ENetListNode;
 			var startCommand : ENetIncomingCommand = null;
 			if (command.header.channelID >= peer.channelCount || peer.state != 5 && peer.state != 6)
@@ -2398,8 +2398,8 @@ package
 				return -1;
 			channel = peer.channels[command.header.channelID];
 			startSequenceNumber = this.p.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-			startWindow = int(startSequenceNumber / 4096);
-			currentWindow = int(channel.incomingReliableSequenceNumber / 4096);
+			startWindow = this.p.intToUshort(int(startSequenceNumber / 4096));
+			currentWindow = this.p.intToUshort(int(channel.incomingReliableSequenceNumber / 4096));
 			if (startSequenceNumber < channel.incomingReliableSequenceNumber)
 				startWindow += 16;
 			if (startWindow < currentWindow || startWindow >= currentWindow + 8 - 1)
@@ -2432,7 +2432,7 @@ package
 				var packet : ENetPacket = this.enet_packet_create(null, totalLength, 1);
 				if (packet == null)
 					return -1;
-				hostCommand.header.reliableSequenceNumber = startSequenceNumber;
+				hostCommand.header.reliableSequenceNumber = this.p.intToUshort(startSequenceNumber);
 				startCommand = this.enet_peer_queue_incoming_command(peer, hostCommand, packet, fragmentCount);
 				if (startCommand == null)
 					return -1;
@@ -2502,8 +2502,8 @@ package
 			var reliableSequenceNumber : int;
 			var startSequenceNumber : int;
 			var totalLength : int;
-			var reliableWindow : int;
-			var currentWindow : int;
+			var reliableWindow : ushort;
+			var currentWindow : ushort;
 			var channel : ENetChannel;
 			var currentCommand : ENetListNode;
 			var startCommand : ENetIncomingCommand = null;
@@ -2517,8 +2517,8 @@ package
 			channel = peer.channels[command.header.channelID];
 			reliableSequenceNumber = command.header.reliableSequenceNumber;
 			startSequenceNumber = this.eNET_NET_TO_HOST_16(command.sendFragment.startSequenceNumber);
-			reliableWindow = int(reliableSequenceNumber / 4096);
-			currentWindow = int(channel.incomingReliableSequenceNumber / 4096);
+			reliableWindow = this.p.intToUshort(int(reliableSequenceNumber / 4096));
+			currentWindow = this.p.intToUshort(int(channel.incomingReliableSequenceNumber / 4096));
 			if (reliableSequenceNumber < channel.incomingReliableSequenceNumber)
 				reliableWindow += 16;
 			if (reliableWindow < currentWindow || reliableWindow >= currentWindow + 8 - 1)
@@ -2701,7 +2701,7 @@ package
 			throw "Unreachable";
 		}
 
-		public final function enet_protocol_remove_sent_reliable_command(peer : ENetPeer, reliableSequenceNumber : int, channelID : int) : int
+		public final function enet_protocol_remove_sent_reliable_command(peer : ENetPeer, reliableSequenceNumber : ushort, channelID : int) : int
 		{
 			var outgoingCommand : ENetOutgoingCommand = null;
 			var currentCommand : ENetListNode;
@@ -2728,7 +2728,7 @@ package
 				return 0;
 			if (channelID < peer.channelCount) {
 				var channel : ENetChannel = peer.channels[channelID];
-				var reliableWindow : int = int(reliableSequenceNumber / 4096);
+				var reliableWindow : ushort = this.p.intToUshort(int(reliableSequenceNumber / 4096));
 				if (channel.reliableWindows[reliableWindow] > 0) {
 					channel.reliableWindows[reliableWindow]--;
 					if (channel.reliableWindows[reliableWindow] == 0)
@@ -2775,7 +2775,7 @@ package
 			var bufferI : int = host.bufferCount;
 			var acknowledgement : ENetAcknowledgement;
 			var currentAcknowledgement : ENetListNode;
-			var reliableSequenceNumber : int;
+			var reliableSequenceNumber : ushort;
 			currentAcknowledgement = this.enet_list_begin(peer.acknowledgements);
 			while (currentAcknowledgement != this.enet_list_end(peer.acknowledgements)) {
 				if (commandI >= 32 || bufferI >= 65 || peer.mtu - host.packetSize < 8) {
@@ -2792,7 +2792,7 @@ package
 				host.commands[commandI].header.reliableSequenceNumber = reliableSequenceNumber;
 				host.commands[commandI].acknowledge = new ENetProtocolAcknowledge();
 				host.commands[commandI].acknowledge.receivedReliableSequenceNumber = reliableSequenceNumber;
-				host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(acknowledgement.sentTime);
+				host.commands[commandI].acknowledge.receivedSentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(acknowledgement.sentTime));
 				var buf : ByteArray = new ByteArray();
 				this.serializeCommand(buf, host.commands[commandI]);
 				host.buffers[bufferI].data = buf;
@@ -2863,7 +2863,7 @@ package
 					}
 					host.buffers[0].data = headerData;
 					if ((host.headerFlags & 32768) != 0) {
-						header.sentTime = this.eNET_HOST_TO_NET_16(host.serviceTime & 65535);
+						header.sentTime = this.eNET_HOST_TO_NET_16(this.p.intToUshort(host.serviceTime & 65535));
 						host.buffers[0].dataLength = 4;
 					}
 					else {
@@ -2873,8 +2873,8 @@ package
 					if (host.compressor != null) {
 					}
 					if (currentPeer.outgoingPeerID < 4095)
-						host.headerFlags |= currentPeer.outgoingSessionID << 12;
-					header.peerID = this.eNET_HOST_TO_NET_16(currentPeer.outgoingPeerID | host.headerFlags);
+						host.headerFlags |= this.p.intToUshort(currentPeer.outgoingSessionID << 12);
+					header.peerID = this.eNET_HOST_TO_NET_16(this.p.intToUshort(currentPeer.outgoingPeerID | host.headerFlags));
 					this.serializeHeader(headerData, header);
 					if (host.checksum != null) {
 					}
@@ -2902,7 +2902,7 @@ package
 			var outgoingCommand : ENetOutgoingCommand;
 			var currentCommand : ENetListNode;
 			var channel : ENetChannel;
-			var reliableWindow : int;
+			var reliableWindow : ushort;
 			var commandSize : int;
 			var windowExceeded : int = 0;
 			var windowWrap : int = 0;
@@ -2914,7 +2914,7 @@ package
 			while (currentCommand != this.enet_list_end(peer.outgoingReliableCommands)) {
 				outgoingCommand = this.p.castToENetOutgoingCommand(currentCommand);
 				channel = outgoingCommand.command.header.channelID < peer.channelCount ? peer.channels[outgoingCommand.command.header.channelID] : null;
-				reliableWindow = int(outgoingCommand.reliableSequenceNumber / 4096);
+				reliableWindow = this.p.intToUshort(int(outgoingCommand.reliableSequenceNumber / 4096));
 				if (channel != null) {
 					if (windowWrap == 0 && outgoingCommand.sendAttempts < 1 && outgoingCommand.reliableSequenceNumber % 4096 == 0 && (channel.reliableWindows[(reliableWindow + 16 - 1) % 16] >= 4096 || (channel.usedReliableWindows & (255 << reliableWindow | 255 >> 4096 - reliableWindow)) != 0))
 						windowWrap = 1;

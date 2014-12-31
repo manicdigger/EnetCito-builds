@@ -19,17 +19,17 @@ static void ENet_Construct(ENet *self);
 static ENetProtocolHeader const *ENet_Deserialize(ENet const *self, unsigned char const *a);
 static void ENet_DeserializeProtocolCommandCommand(ENet const *self, unsigned char const *readBuf, int currentDataI, unsigned char commandNumber, ENetProtocol *command);
 static ENetProtocol *ENet_DeserializeProtocolCommandHeader(ENet const *self, unsigned char const *currentData, int currentDataI);
-static int ENet_ENET_HOST_TO_NET_16(ENet const *self, int a);
+static ushort ENet_ENET_HOST_TO_NET_16(ENet const *self, ushort a);
 static int ENet_ENET_MAX(ENet const *self, int x, int y);
 static int ENet_ENET_MIN(ENet const *self, int x, int y);
-static int ENet_ENET_NET_TO_HOST_16(ENet const *self, int a);
+static ushort ENet_ENET_NET_TO_HOST_16(ENet const *self, ushort a);
 static int ENet_ENET_NET_TO_HOST_32(ENet const *self, int a);
 static int ENet_ENET_TIME_DIFFERENCE(ENet const *self, int a, int b);
 static cibool ENet_ENET_TIME_GREATER_EQUAL(ENet const *self, int a, int b);
 static cibool ENet_ENET_TIME_LESS(ENet const *self, int a, int b);
 static unsigned char ENet_ReadByte(ENet const *self, unsigned char const *currentData, int currentDataI);
 static int ENet_ReadInt(ENet const *self, unsigned char const *readBuf, int readPos);
-static int ENet_ReadShort(ENet const *self, unsigned char const *readBuf, int readPos);
+static ushort ENet_ReadShort(ENet const *self, unsigned char const *readBuf, int readPos);
 static void ENet_SerializeCommand(ENet const *self, unsigned char *buf, ENetProtocol const *a);
 static void ENet_SerializeHeader(ENet const *self, unsigned char *headerData, ENetProtocolHeader const *header);
 static int ENet_ToUint16(ENet const *self, int a);
@@ -52,9 +52,9 @@ static void ENet_enet_peer_dispatch_incoming_reliable_commands(ENet const *self,
 static void ENet_enet_peer_dispatch_incoming_unreliable_commands(ENet const *self, ENetPeer *peer, ENetChannel *channel);
 static void ENet_enet_peer_on_connect(ENet const *self, ENetPeer const *peer);
 static void ENet_enet_peer_on_disconnect(ENet const *self, ENetPeer const *peer);
-static ENetAcknowledgement const *ENet_enet_peer_queue_acknowledgement(ENet const *self, ENetPeer *peer, ENetProtocol const *command, int sentTime);
+static ENetAcknowledgement const *ENet_enet_peer_queue_acknowledgement(ENet const *self, ENetPeer *peer, ENetProtocol const *command, ushort sentTime);
 static ENetIncomingCommand *ENet_enet_peer_queue_incoming_command(ENet const *self, ENetPeer *peer, ENetProtocol const *command, ENetPacket *packet, int fragmentCount);
-static ENetOutgoingCommand const *ENet_enet_peer_queue_outgoing_command(ENet const *self, ENetPeer *peer, ENetProtocol *command, ENetPacket *packet, int offset, int length);
+static ENetOutgoingCommand const *ENet_enet_peer_queue_outgoing_command(ENet const *self, ENetPeer *peer, ENetProtocol *command, ENetPacket *packet, int offset, ushort length);
 static int ENet_enet_peer_throttle(ENet const *self, ENetPeer *peer, int rtt);
 static int ENet_enet_protocol_command_size(ENet const *self, unsigned char commandNumber);
 static int ENet_enet_protocol_handle_send_reliable(ENet const *self, ENetHost const *host, ENetPeer *peer, ENetProtocol *command, unsigned char const *currentData, int *currentDataI);
@@ -92,11 +92,11 @@ struct ENetBuffer {
 struct ENetChannel {
 	int incomingReliableSequenceNumber;
 	int incomingUnreliableSequenceNumber;
-	int outgoingReliableSequenceNumber;
-	int outgoingUnreliableSequenceNumber;
 	int usedReliableWindows;
 	ENetList const *incomingReliableCommands;
 	ENetList const *incomingUnreliableCommands;
+	ushort outgoingReliableSequenceNumber;
+	ushort outgoingUnreliableSequenceNumber;
 	int *reliableWindows;
 };
 static void ENetChannel_Construct(ENetChannel *self);
@@ -105,6 +105,9 @@ typedef struct {
 	int (*run)(ENetChecksumCallback *self, ENetBuffer const *buffers, int bufferCount);
 }
 ENetChecksumCallbackVtbl;
+struct ENetChecksumCallback {
+	const ENetChecksumCallbackVtbl *vtbl;
+};
 static void ENetChecksumCallback_Construct(ENetChecksumCallback *self, const ENetChecksumCallbackVtbl *vtbl);
 
 typedef struct {
@@ -113,6 +116,9 @@ typedef struct {
 	void (*destroy)(ENetCompressor *self);
 }
 ENetCompressorVtbl;
+struct ENetCompressor {
+	const ENetCompressorVtbl *vtbl;
+};
 static void ENetCompressor_Construct(ENetCompressor *self, const ENetCompressorVtbl *vtbl);
 
 
@@ -132,7 +138,6 @@ struct ENetHost {
 	int commandCount;
 	int connectedPeers;
 	int continueSending;
-	int headerFlags;
 	int incomingBandwidth;
 	int mtu;
 	int outgoingBandwidth;
@@ -152,6 +157,7 @@ struct ENetHost {
 	ENetProtocol **commands;
 	ENetCompressor const *compressor;
 	ENetList *dispatchQueue;
+	ushort headerFlags;
 	ENetInterceptCallback const *intercept;
 	unsigned char **packetData;
 	ENetPeer **peers;
@@ -165,17 +171,20 @@ struct ENetIncomingCommand {
 	ENetListNode base;
 	int fragmentCount;
 	int fragmentsRemaining;
-	int reliableSequenceNumber;
-	int unreliableSequenceNumber;
 	ENetProtocol const *command;
 	int *fragments;
 	ENetPacket *packet;
+	ushort reliableSequenceNumber;
+	ushort unreliableSequenceNumber;
 };
 
 typedef struct {
 	int (*run)(ENetInterceptCallback *self, ENetHost const *host, ENetEvent const *event_);
 }
 ENetInterceptCallbackVtbl;
+struct ENetInterceptCallback {
+	const ENetInterceptCallbackVtbl *vtbl;
+};
 static void ENetInterceptCallback_Construct(ENetInterceptCallback *self, const ENetInterceptCallbackVtbl *vtbl);
 
 struct ENetList {
@@ -185,16 +194,16 @@ static void ENetList_Construct(ENetList *self);
 
 struct ENetOutgoingCommand {
 	ENetListNode base;
-	int fragmentLength;
 	int fragmentOffset;
-	int reliableSequenceNumber;
 	int roundTripTimeout;
 	int roundTripTimeoutLimit;
-	int sendAttempts;
 	int sentTime;
-	int unreliableSequenceNumber;
 	ENetProtocol *command;
+	ushort fragmentLength;
 	ENetPacket *packet;
+	ushort reliableSequenceNumber;
+	ushort sendAttempts;
+	ushort unreliableSequenceNumber;
 };
 
 struct ENetPacket {
@@ -214,6 +223,9 @@ typedef struct {
 	void (*run)(ENetPacketFreeCallback *self, ENetPacket const *packet);
 }
 ENetPacketFreeCallbackVtbl;
+struct ENetPacketFreeCallback {
+	const ENetPacketFreeCallbackVtbl *vtbl;
+};
 static void ENetPacketFreeCallback_Construct(ENetPacketFreeCallback *self, const ENetPacketFreeCallbackVtbl *vtbl);
 
 struct ENetPeer {
@@ -228,7 +240,6 @@ struct ENetPeer {
 	int incomingBandwidth;
 	int incomingBandwidthThrottleEpoch;
 	int incomingDataTotal;
-	int incomingPeerID;
 	int incomingUnsequencedGroup;
 	int lastReceiveTime;
 	int lastRoundTripTime;
@@ -241,9 +252,6 @@ struct ENetPeer {
 	int outgoingBandwidth;
 	int outgoingBandwidthThrottleEpoch;
 	int outgoingDataTotal;
-	int outgoingPeerID;
-	int outgoingReliableSequenceNumber;
-	int outgoingUnsequencedGroup;
 	int packetLoss;
 	int packetLossEpoch;
 	int packetLossVariance;
@@ -271,8 +279,12 @@ struct ENetPeer {
 	unsigned char const *data;
 	ENetList const *dispatchedCommands;
 	ENetHost *host;
+	ushort incomingPeerID;
+	ushort outgoingPeerID;
 	ENetList const *outgoingReliableCommands;
+	ushort outgoingReliableSequenceNumber;
 	ENetList const *outgoingUnreliableCommands;
+	ushort outgoingUnsequencedGroup;
 	ENetList const *sentReliableCommands;
 	ENetList const *sentUnreliableCommands;
 	int *unsequencedWindow;
@@ -287,10 +299,11 @@ typedef struct {
 	ENetListNode *(*castToENetListNode)(ENetPlatform *self, ENetObject const *a);
 	ENetOutgoingCommand *(*castToENetOutgoingCommand)(ENetPlatform *self, ENetObject const *a);
 	ENetPeer *(*castToENetPeer)(ENetPlatform *self, ENetListNode const *a);
-	int (*eNET_HOST_TO_NET_16)(ENetPlatform *self, int p);
+	ushort (*eNET_HOST_TO_NET_16)(ENetPlatform *self, ushort p);
 	int (*eNET_HOST_TO_NET_32)(ENetPlatform *self, int p);
-	int (*eNET_NET_TO_HOST_16)(ENetPlatform *self, int p);
+	ushort (*eNET_NET_TO_HOST_16)(ENetPlatform *self, ushort p);
 	int (*eNET_NET_TO_HOST_32)(ENetPlatform *self, int fragmentOffset);
+	ushort (*intToUshort)(ENetPlatform *self, int p);
 	int (*enet_address_set_host)(ENetPlatform *self, ENetAddress const *address, const char *hostName);
 	int (*enet_socket_accept)(ENetPlatform *self, ENetSocket const *socket, ENetAddress const *address);
 	int (*enet_socket_bind)(ENetPlatform *self, ENetSocket const *socket, ENetAddress const *address);
@@ -308,6 +321,9 @@ typedef struct {
 	int (*time)(ENetPlatform *self);
 }
 ENetPlatformVtbl;
+struct ENetPlatform {
+	const ENetPlatformVtbl *vtbl;
+};
 static void ENetPlatform_Construct(ENetPlatform *self, const ENetPlatformVtbl *vtbl);
 
 struct ENetProtocol {
@@ -328,8 +344,8 @@ struct ENetProtocol {
 static void ENetProtocol_Construct(ENetProtocol *self);
 
 struct ENetProtocolAcknowledge {
-	int receivedReliableSequenceNumber;
-	int receivedSentTime;
+	ushort receivedReliableSequenceNumber;
+	ushort receivedSentTime;
 };
 
 struct ENetProtocolBandwidthLimit {
@@ -340,7 +356,7 @@ struct ENetProtocolBandwidthLimit {
 struct ENetProtocolCommandHeader {
 	unsigned char channelID;
 	unsigned char command;
-	int reliableSequenceNumber;
+	ushort reliableSequenceNumber;
 };
 
 struct ENetProtocolConnect {
@@ -352,11 +368,11 @@ struct ENetProtocolConnect {
 	int incomingBandwidth;
 	int mtu;
 	int outgoingBandwidth;
-	int outgoingPeerID;
 	int packetThrottleAcceleration;
 	int packetThrottleDeceleration;
 	int packetThrottleInterval;
 	int windowSize;
+	ushort outgoingPeerID;
 };
 
 struct ENetProtocolDisconnect {
@@ -364,32 +380,32 @@ struct ENetProtocolDisconnect {
 };
 
 struct ENetProtocolHeader {
-	int peerID;
-	int sentTime;
+	ushort peerID;
+	ushort sentTime;
 };
 
 
 struct ENetProtocolSendFragment {
-	int dataLength;
 	int fragmentCount;
 	int fragmentNumber;
 	int fragmentOffset;
-	int startSequenceNumber;
 	int totalLength;
+	ushort dataLength;
+	ushort startSequenceNumber;
 };
 
 struct ENetProtocolSendReliable {
-	int dataLength;
+	ushort dataLength;
 };
 
 struct ENetProtocolSendUnreliable {
-	int dataLength;
-	int unreliableSequenceNumber;
+	ushort dataLength;
+	ushort unreliableSequenceNumber;
 };
 
 struct ENetProtocolSendUnsequenced {
-	int dataLength;
-	int unsequencedGroup;
+	ushort dataLength;
+	ushort unsequencedGroup;
 };
 
 struct ENetProtocolThrottleConfigure {
@@ -406,17 +422,20 @@ struct ENetProtocolVerifyConnect {
 	int incomingBandwidth;
 	int mtu;
 	int outgoingBandwidth;
-	int outgoingPeerID;
 	int packetThrottleAcceleration;
 	int packetThrottleDeceleration;
 	int packetThrottleInterval;
 	int windowSize;
+	ushort outgoingPeerID;
 };
 
 typedef struct {
 	cibool (*nULL)(ENetSocket *self);
 }
 ENetSocketVtbl;
+struct ENetSocket {
+	const ENetSocketVtbl *vtbl;
+};
 static void ENetSocket_Construct(ENetSocket *self, const ENetSocketVtbl *vtbl);
 
 
@@ -433,7 +452,6 @@ struct ENetSymbol {
 	int total;
 	int under;
 };
-
 
 
 
@@ -647,7 +665,7 @@ static ENetProtocol *ENet_DeserializeProtocolCommandHeader(ENet const *self, uns
 	return a;
 }
 
-static int ENet_ENET_HOST_TO_NET_16(ENet const *self, int a)
+static ushort ENet_ENET_HOST_TO_NET_16(ENet const *self, ushort a)
 {
 	return self->p->vtbl->eNET_HOST_TO_NET_16(self->p, a);
 }
@@ -662,7 +680,7 @@ static int ENet_ENET_MIN(ENet const *self, int x, int y)
 	return x < y ? x : y;
 }
 
-static int ENet_ENET_NET_TO_HOST_16(ENet const *self, int a)
+static ushort ENet_ENET_NET_TO_HOST_16(ENet const *self, ushort a)
 {
 	return self->p->vtbl->eNET_NET_TO_HOST_16(self->p, a);
 }
@@ -726,12 +744,12 @@ static int ENet_ReadInt(ENet const *self, unsigned char const *readBuf, int read
 	return n;
 }
 
-static int ENet_ReadShort(ENet const *self, unsigned char const *readBuf, int readPos)
+static ushort ENet_ReadShort(ENet const *self, unsigned char const *readBuf, int readPos)
 {
 	int n = readBuf[readPos + 1] << 8;
 	n |= readBuf[readPos + 0];
 	readPos += 2;
-	return n;
+	return self->p->vtbl->intToUshort(self->p, n);
 }
 
 static void ENet_SerializeCommand(ENet const *self, unsigned char *buf, ENetProtocol const *a)
@@ -858,7 +876,7 @@ unsigned char ENet_ToByte(int a)
 
 static int ENet_ToUint16(ENet const *self, int a)
 {
-	return a;
+	return self->p->vtbl->intToUshort(self->p, a);
 }
 
 static void ENet_WriteByte(ENet const *self, unsigned char *data, int *pos, int value)
@@ -1151,7 +1169,7 @@ ENetPeer const *ENet_enet_host_connect(ENet const *self, ENetHost *host, ENetAdd
 		int i;
 		for (i = 0; i < channelCount; i++) {
 			channel = currentPeer->channels[i];
-			ENetChannel_SetOutgoingReliableSequenceNumber(channel, 0);
+			channel->outgoingReliableSequenceNumber = 0;
 			channel->outgoingUnreliableSequenceNumber = 0;
 			channel->incomingReliableSequenceNumber = 0;
 			channel->incomingUnreliableSequenceNumber = 0;
@@ -1259,7 +1277,7 @@ ENetHost const *ENet_enet_host_create(ENet const *self, ENetAddress const *addre
 		for (i = 0; i < host->peerCount; i++) {
 			currentPeer = host->peers[i];
 			currentPeer->host = host;
-			currentPeer->incomingPeerID = i;
+			currentPeer->incomingPeerID = self->p->vtbl->intToUshort(self->p, i);
 			currentPeer->outgoingSessionID = currentPeer->incomingSessionID = 255;
 			currentPeer->data = NULL;
 			ENet_enet_list_clear(self, currentPeer->acknowledgements);
@@ -1556,7 +1574,7 @@ static void ENet_enet_peer_dispatch_incoming_reliable_commands(ENet const *self,
 	ENetListNode const *currentCommand;
 	for (currentCommand = ENet_enet_list_begin(self, channel->incomingReliableCommands); currentCommand != ENet_enet_list_end(self, channel->incomingReliableCommands); currentCommand = ENet_enet_list_next(self, currentCommand)) {
 		ENetIncomingCommand const *incomingCommand = self->p->vtbl->castToENetIncomingCommand(self->p, &currentCommand->base);
-		if (incomingCommand->fragmentsRemaining > 0 || incomingCommand->reliableSequenceNumber != channel->incomingReliableSequenceNumber + 1)
+		if (incomingCommand->fragmentsRemaining > 0 || incomingCommand->reliableSequenceNumber != self->p->vtbl->intToUshort(self->p, channel->incomingReliableSequenceNumber + 1))
 			break;
 		channel->incomingReliableSequenceNumber = incomingCommand->reliableSequenceNumber;
 		if (incomingCommand->fragmentCount > 0)
@@ -1600,8 +1618,8 @@ static void ENet_enet_peer_dispatch_incoming_unreliable_commands(ENet const *sel
 				droppedCommand = ENet_enet_list_previous(self, currentCommand);
 		}
 		else {
-			int reliableWindow = incomingCommand->reliableSequenceNumber / 4096;
-			int currentWindow = channel->incomingReliableSequenceNumber / 4096;
+			ushort reliableWindow = self->p->vtbl->intToUshort(self->p, incomingCommand->reliableSequenceNumber / 4096);
+			ushort currentWindow = self->p->vtbl->intToUshort(self->p, channel->incomingReliableSequenceNumber / 4096);
 			if (incomingCommand->reliableSequenceNumber < channel->incomingReliableSequenceNumber)
 				reliableWindow += 16;
 			if (reliableWindow >= currentWindow && reliableWindow < currentWindow + 8 - 1)
@@ -1661,13 +1679,13 @@ void ENet_enet_peer_ping_interval(ENet const *self, ENetPeer *peer, int pingInte
 	peer->pingInterval = pingInterval != 0 ? pingInterval : 500;
 }
 
-static ENetAcknowledgement const *ENet_enet_peer_queue_acknowledgement(ENet const *self, ENetPeer *peer, ENetProtocol const *command, int sentTime)
+static ENetAcknowledgement const *ENet_enet_peer_queue_acknowledgement(ENet const *self, ENetPeer *peer, ENetProtocol const *command, ushort sentTime)
 {
 	ENetAcknowledgement *acknowledgement;
 	if (command->header->channelID < peer->channelCount) {
 		ENetChannel const *channel = peer->channels[command->header->channelID];
-		int reliableWindow = command->header->reliableSequenceNumber / 4096;
-		int currentWindow = channel->incomingReliableSequenceNumber / 4096;
+		ushort reliableWindow = self->p->vtbl->intToUshort(self->p, command->header->reliableSequenceNumber / 4096);
+		ushort currentWindow = self->p->vtbl->intToUshort(self->p, channel->incomingReliableSequenceNumber / 4096);
 		if (command->header->reliableSequenceNumber < channel->incomingReliableSequenceNumber)
 			reliableWindow += 16;
 		if (reliableWindow >= currentWindow + 8 - 1 && reliableWindow <= currentWindow + 8)
@@ -1761,7 +1779,7 @@ static ENetIncomingCommand *ENet_enet_peer_queue_incoming_command(ENet const *se
 	if (incomingCommand == NULL)
 		return ENet_notifyError(self, packet);
 	incomingCommand->reliableSequenceNumber = command->header->reliableSequenceNumber;
-	incomingCommand->unreliableSequenceNumber = unreliableSequenceNumber & 65535;
+	incomingCommand->unreliableSequenceNumber = self->p->vtbl->intToUshort(self->p, unreliableSequenceNumber & 65535);
 	incomingCommand->command = command;
 	incomingCommand->fragmentCount = fragmentCount;
 	incomingCommand->fragmentsRemaining = fragmentCount;
@@ -1796,7 +1814,7 @@ static ENetIncomingCommand *ENet_enet_peer_queue_incoming_command(ENet const *se
 	return incomingCommand;
 }
 
-static ENetOutgoingCommand const *ENet_enet_peer_queue_outgoing_command(ENet const *self, ENetPeer *peer, ENetProtocol *command, ENetPacket *packet, int offset, int length)
+static ENetOutgoingCommand const *ENet_enet_peer_queue_outgoing_command(ENet const *self, ENetPeer *peer, ENetProtocol *command, ENetPacket *packet, int offset, ushort length)
 {
 	ENetOutgoingCommand *outgoingCommand = ENetOutgoingCommand_New();
 	if (outgoingCommand == NULL)
@@ -1888,7 +1906,7 @@ void ENet_enet_peer_reset(ENet const *self, ENetPeer *peer)
 	peer->roundTripTimeVariance = 0;
 	peer->mtu = peer->host->mtu;
 	peer->reliableDataInTransit = 0;
-	ENetPeer_SetOutgoingReliableSequenceNumber(peer, 0);
+	peer->outgoingReliableSequenceNumber = 0;
 	peer->windowSize = 32768;
 	peer->incomingUnsequencedGroup = 0;
 	peer->outgoingUnsequencedGroup = 0;
@@ -1967,18 +1985,18 @@ int ENet_enet_peer_send(ENet const *self, ENetPeer *peer, unsigned char channelI
 		int fragmentNumber;
 		int fragmentOffset;
 		unsigned char commandNumber;
-		int startSequenceNumber;
+		ushort startSequenceNumber;
 		ENetList const *fragments = NULL;
 		ENetOutgoingCommand *fragment;
 		if (fragmentCount > 1048576)
 			return -1;
 		if ((packet->flags & 9) == 8 && channel->outgoingUnreliableSequenceNumber < 65535) {
 			commandNumber = 12;
-			startSequenceNumber = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, channel->outgoingUnreliableSequenceNumber + 1);
+			startSequenceNumber = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, channel->outgoingUnreliableSequenceNumber + 1));
 		}
 		else {
 			commandNumber = 136;
-			startSequenceNumber = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, ENetChannel_GetOutgoingReliableSequenceNumber(channel) + 1);
+			startSequenceNumber = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, channel->outgoingReliableSequenceNumber + 1));
 		}
 		ENet_enet_list_clear(self, fragments);
 		fragmentNumber = 0;
@@ -1995,12 +2013,12 @@ int ENet_enet_peer_send(ENet const *self, ENetPeer *peer, unsigned char channelI
 				return -1;
 			}
 			fragment->fragmentOffset = fragmentOffset;
-			fragment->fragmentLength = fragmentLength;
+			fragment->fragmentLength = self->p->vtbl->intToUshort(self->p, fragmentLength);
 			fragment->packet = packet;
 			fragment->command->header->command = commandNumber;
 			fragment->command->header->channelID = channelID;
 			fragment->command->sendFragment->startSequenceNumber = startSequenceNumber;
-			fragment->command->sendFragment->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, fragmentLength);
+			fragment->command->sendFragment->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, fragmentLength));
 			fragment->command->sendFragment->fragmentCount = self->p->vtbl->eNET_HOST_TO_NET_32(self->p, fragmentCount);
 			fragment->command->sendFragment->fragmentNumber = self->p->vtbl->eNET_HOST_TO_NET_32(self->p, fragmentNumber);
 			fragment->command->sendFragment->totalLength = self->p->vtbl->eNET_HOST_TO_NET_32(self->p, packet->dataLength);
@@ -2019,19 +2037,19 @@ int ENet_enet_peer_send(ENet const *self, ENetPeer *peer, unsigned char channelI
 	command->header->channelID = channelID;
 	if ((packet->flags & 3) == 2) {
 		command->header->command = 73;
-		command->sendUnsequenced->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, packet->dataLength);
+		command->sendUnsequenced->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, packet->dataLength));
 	}
 	else if ((packet->flags & 1) != 0 || channel->outgoingUnreliableSequenceNumber >= 65535) {
 		command->header->command = 134;
 		command->sendReliable = ENetProtocolSendReliable_New();
-		command->sendReliable->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, packet->dataLength);
+		command->sendReliable->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, packet->dataLength));
 	}
 	else {
 		command->header->command = 7;
 		command->sendUnreliable = ENetProtocolSendUnreliable_New();
-		command->sendUnreliable->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, packet->dataLength);
+		command->sendUnreliable->dataLength = self->p->vtbl->eNET_HOST_TO_NET_16(self->p, self->p->vtbl->intToUshort(self->p, packet->dataLength));
 	}
-	if (ENet_enet_peer_queue_outgoing_command(self, peer, command, packet, 0, packet->dataLength) == NULL)
+	if (ENet_enet_peer_queue_outgoing_command(self, peer, command, packet, 0, self->p->vtbl->intToUshort(self->p, packet->dataLength)) == NULL)
 		return -1;
 	return 0;
 }
@@ -2041,16 +2059,16 @@ void ENet_enet_peer_setup_outgoing_command(ENet const *self, ENetPeer *peer, ENe
 	ENetChannel *channel = NULL;
 	peer->outgoingDataTotal += ENet_enet_protocol_command_size(self, outgoingCommand->command->header->command) + outgoingCommand->fragmentLength;
 	if (outgoingCommand->command->header->channelID == 255) {
-		ENetPeer_SetOutgoingReliableSequenceNumber(peer, ENetPeer_GetOutgoingReliableSequenceNumber(peer) + 1);
-		outgoingCommand->reliableSequenceNumber = ENetPeer_GetOutgoingReliableSequenceNumber(peer);
+		peer->outgoingReliableSequenceNumber++;
+		outgoingCommand->reliableSequenceNumber = peer->outgoingReliableSequenceNumber;
 		outgoingCommand->unreliableSequenceNumber = 0;
 	}
 	else {
 		channel = peer->channels[outgoingCommand->command->header->channelID];
 		if ((outgoingCommand->command->header->command & 128) != 0) {
-			ENetChannel_SetOutgoingReliableSequenceNumber(channel, ENetChannel_GetOutgoingReliableSequenceNumber(channel) + 1);
+			channel->outgoingReliableSequenceNumber++;
 			channel->outgoingUnreliableSequenceNumber = 0;
-			outgoingCommand->reliableSequenceNumber = ENetChannel_GetOutgoingReliableSequenceNumber(channel);
+			outgoingCommand->reliableSequenceNumber = channel->outgoingReliableSequenceNumber;
 			outgoingCommand->unreliableSequenceNumber = 0;
 		}
 		else if ((outgoingCommand->command->header->command & 64) != 0) {
@@ -2061,7 +2079,7 @@ void ENet_enet_peer_setup_outgoing_command(ENet const *self, ENetPeer *peer, ENe
 		else {
 			if (outgoingCommand->fragmentOffset == 0)
 				channel->outgoingUnreliableSequenceNumber++;
-			outgoingCommand->reliableSequenceNumber = ENetChannel_GetOutgoingReliableSequenceNumber(channel);
+			outgoingCommand->reliableSequenceNumber = channel->outgoingReliableSequenceNumber;
 			outgoingCommand->unreliableSequenceNumber = channel->outgoingUnreliableSequenceNumber;
 		}
 	}
@@ -2265,7 +2283,7 @@ int ENet_enet_protocol_handle_acknowledge(ENet *self, ENetHost *host, ENetEvent 
 		peer->packetThrottleEpoch = host->serviceTime;
 	}
 	receivedReliableSequenceNumber = self->p->vtbl->eNET_NET_TO_HOST_16(self->p, command->acknowledge->receivedReliableSequenceNumber);
-	commandNumber = ENet_enet_protocol_remove_sent_reliable_command(self, peer, receivedReliableSequenceNumber, command->header->channelID);
+	commandNumber = ENet_enet_protocol_remove_sent_reliable_command(self, peer, self->p->vtbl->intToUshort(self->p, receivedReliableSequenceNumber), command->header->channelID);
 	switch (peer->state) {
 	case 2:
 		if (commandNumber != 3)
@@ -2368,7 +2386,7 @@ ENetPeer *ENet_enet_protocol_handle_connect(ENet const *self, ENetHost const *ho
 	currentPeer->incomingSessionID = outgoingSessionID;
 	for (i = 0; i < currentPeer->channelCount; i++) {
 		channel = currentPeer->channels[i];
-		ENetChannel_SetOutgoingReliableSequenceNumber(channel, 0);
+		channel->outgoingReliableSequenceNumber = 0;
 		channel->outgoingUnreliableSequenceNumber = 0;
 		channel->incomingReliableSequenceNumber = 0;
 		channel->incomingUnreliableSequenceNumber = 0;
@@ -2456,8 +2474,8 @@ int ENet_enet_protocol_handle_incoming_commands(ENet *self, ENetHost *host, ENet
 	ENetPeer *peer;
 	unsigned char const *currentData = NULL;
 	int headerSize = 0;
-	int peerID;
-	int flags;
+	ushort peerID;
+	ushort flags;
 	int sessionID;
 	int *currentDataI = (int *) malloc(1 * sizeof(int ));
 	int test;
@@ -2465,8 +2483,8 @@ int ENet_enet_protocol_handle_incoming_commands(ENet *self, ENetHost *host, ENet
 	header = ENet_Deserialize(self, host->receivedData);
 	peerID = ENet_ENET_NET_TO_HOST_16(self, header->peerID);
 	sessionID = (peerID & 12288) >> 12;
-	flags = peerID & 49152;
-	peerID &= ~61440;
+	flags = self->p->vtbl->intToUshort(self->p, peerID & 49152);
+	peerID &= self->p->vtbl->intToUshort(self->p, ~61440);
 	headerSize = (flags & 32768) != 0 ? 4 : 2;
 	if (host->checksum != NULL)
 		headerSize += 4;
@@ -2591,7 +2609,7 @@ int ENet_enet_protocol_handle_incoming_commands(ENet *self, ENetHost *host, ENet
 			return ENet_commandError(self, event_);
 		}
 		if (peer != NULL && (command->header->command & 128) != 0) {
-			int sentTime;
+			ushort sentTime;
 			if ((flags & 32768) == 0)
 				break;
 			sentTime = ENet_ENET_NET_TO_HOST_16(self, header->sentTime);
@@ -2633,8 +2651,8 @@ int ENet_enet_protocol_handle_send_fragment(ENet const *self, ENetHost const *ho
 	int startSequenceNumber;
 	int totalLength;
 	ENetChannel *channel;
-	int startWindow;
-	int currentWindow;
+	ushort startWindow;
+	ushort currentWindow;
 	ENetListNode const *currentCommand;
 	ENetIncomingCommand *startCommand = NULL;
 	if (command->header->channelID >= peer->channelCount || (peer->state != 5 && peer->state != 6))
@@ -2645,8 +2663,8 @@ int ENet_enet_protocol_handle_send_fragment(ENet const *self, ENetHost const *ho
 		return -1;
 	channel = peer->channels[command->header->channelID];
 	startSequenceNumber = self->p->vtbl->eNET_NET_TO_HOST_16(self->p, command->sendFragment->startSequenceNumber);
-	startWindow = startSequenceNumber / 4096;
-	currentWindow = channel->incomingReliableSequenceNumber / 4096;
+	startWindow = self->p->vtbl->intToUshort(self->p, startSequenceNumber / 4096);
+	currentWindow = self->p->vtbl->intToUshort(self->p, channel->incomingReliableSequenceNumber / 4096);
 	if (startSequenceNumber < channel->incomingReliableSequenceNumber)
 		startWindow += 16;
 	if (startWindow < currentWindow || startWindow >= currentWindow + 8 - 1)
@@ -2679,7 +2697,7 @@ int ENet_enet_protocol_handle_send_fragment(ENet const *self, ENetHost const *ho
 		ENetPacket *packet = ENet_enet_packet_create(self, NULL, totalLength, 1);
 		if (packet == NULL)
 			return -1;
-		hostCommand->header->reliableSequenceNumber = startSequenceNumber;
+		hostCommand->header->reliableSequenceNumber = self->p->vtbl->intToUshort(self->p, startSequenceNumber);
 		startCommand = ENet_enet_peer_queue_incoming_command(self, peer, hostCommand, packet, fragmentCount);
 		if (startCommand == NULL)
 			return -1;
@@ -2759,8 +2777,8 @@ int ENet_enet_protocol_handle_send_unreliable_fragment(ENet const *self, ENetHos
 	int reliableSequenceNumber;
 	int startSequenceNumber;
 	int totalLength;
-	int reliableWindow;
-	int currentWindow;
+	ushort reliableWindow;
+	ushort currentWindow;
 	ENetChannel *channel;
 	ENetListNode const *currentCommand;
 	ENetIncomingCommand *startCommand = NULL;
@@ -2775,8 +2793,8 @@ int ENet_enet_protocol_handle_send_unreliable_fragment(ENet const *self, ENetHos
 	channel = peer->channels[command->header->channelID];
 	reliableSequenceNumber = command->header->reliableSequenceNumber;
 	startSequenceNumber = ENet_ENET_NET_TO_HOST_16(self, command->sendFragment->startSequenceNumber);
-	reliableWindow = reliableSequenceNumber / 4096;
-	currentWindow = channel->incomingReliableSequenceNumber / 4096;
+	reliableWindow = self->p->vtbl->intToUshort(self->p, reliableSequenceNumber / 4096);
+	currentWindow = self->p->vtbl->intToUshort(self->p, channel->incomingReliableSequenceNumber / 4096);
 	if (reliableSequenceNumber < channel->incomingReliableSequenceNumber)
 		reliableWindow += 16;
 	if (reliableWindow < currentWindow || reliableWindow >= currentWindow + 8 - 1)
@@ -2962,7 +2980,7 @@ int ENet_enet_protocol_receive_incoming_commands(ENet *self, ENetHost *host, ENe
 	}
 }
 
-int ENet_enet_protocol_remove_sent_reliable_command(ENet const *self, ENetPeer *peer, int reliableSequenceNumber, unsigned char channelID)
+int ENet_enet_protocol_remove_sent_reliable_command(ENet const *self, ENetPeer *peer, ushort reliableSequenceNumber, unsigned char channelID)
 {
 	ENetOutgoingCommand *outgoingCommand = NULL;
 	ENetListNode const *currentCommand;
@@ -2989,7 +3007,7 @@ int ENet_enet_protocol_remove_sent_reliable_command(ENet const *self, ENetPeer *
 		return 0;
 	if (channelID < peer->channelCount) {
 		ENetChannel *channel = peer->channels[channelID];
-		int reliableWindow = reliableSequenceNumber / 4096;
+		ushort reliableWindow = self->p->vtbl->intToUshort(self->p, reliableSequenceNumber / 4096);
 		if (channel->reliableWindows[reliableWindow] > 0) {
 			channel->reliableWindows[reliableWindow]--;
 			if (channel->reliableWindows[reliableWindow] == 0)
@@ -3038,7 +3056,7 @@ static void ENet_enet_protocol_send_acknowledgements(ENet const *self, ENetHost 
 	int bufferI = host->bufferCount;
 	ENetAcknowledgement *acknowledgement;
 	ENetListNode const *currentAcknowledgement;
-	int reliableSequenceNumber;
+	ushort reliableSequenceNumber;
 	currentAcknowledgement = ENet_enet_list_begin(self, peer->acknowledgements);
 	while (currentAcknowledgement != ENet_enet_list_end(self, peer->acknowledgements)) {
 		unsigned char *buf;
@@ -3056,7 +3074,7 @@ static void ENet_enet_protocol_send_acknowledgements(ENet const *self, ENetHost 
 		host->commands[commandI]->header->reliableSequenceNumber = reliableSequenceNumber;
 		host->commands[commandI]->acknowledge = ENetProtocolAcknowledge_New();
 		host->commands[commandI]->acknowledge->receivedReliableSequenceNumber = reliableSequenceNumber;
-		host->commands[commandI]->acknowledge->receivedSentTime = ENet_ENET_HOST_TO_NET_16(self, acknowledgement->sentTime);
+		host->commands[commandI]->acknowledge->receivedSentTime = ENet_ENET_HOST_TO_NET_16(self, self->p->vtbl->intToUshort(self->p, acknowledgement->sentTime));
 		buf = (unsigned char *) malloc(128 * sizeof(unsigned char ));
 		ENet_SerializeCommand(self, buf, host->commands[commandI]);
 		host->buffers[bufferI]->data = buf;
@@ -3130,7 +3148,7 @@ int ENet_enet_protocol_send_outgoing_commands(ENet *self, ENetHost *host, ENetEv
 				}
 				host->buffers[0]->data = headerData;
 				if ((host->headerFlags & 32768) != 0) {
-					header->sentTime = ENet_ENET_HOST_TO_NET_16(self, host->serviceTime & 65535);
+					header->sentTime = ENet_ENET_HOST_TO_NET_16(self, self->p->vtbl->intToUshort(self->p, host->serviceTime & 65535));
 					host->buffers[0]->dataLength = 4;
 				}
 				else {
@@ -3140,8 +3158,8 @@ int ENet_enet_protocol_send_outgoing_commands(ENet *self, ENetHost *host, ENetEv
 				if (host->compressor != NULL) {
 				}
 				if (currentPeer->outgoingPeerID < 4095)
-					host->headerFlags |= currentPeer->outgoingSessionID << 12;
-				header->peerID = ENet_ENET_HOST_TO_NET_16(self, currentPeer->outgoingPeerID | host->headerFlags);
+					host->headerFlags |= self->p->vtbl->intToUshort(self->p, currentPeer->outgoingSessionID << 12);
+				header->peerID = ENet_ENET_HOST_TO_NET_16(self, self->p->vtbl->intToUshort(self->p, currentPeer->outgoingPeerID | host->headerFlags));
 				ENet_SerializeHeader(self, headerData, header);
 				if (host->checksum != NULL) {
 				}
@@ -3170,7 +3188,7 @@ int ENet_enet_protocol_send_reliable_outgoing_commands(ENet *self, ENetHost *hos
 	ENetOutgoingCommand *outgoingCommand;
 	ENetListNode const *currentCommand;
 	ENetChannel *channel;
-	int reliableWindow;
+	ushort reliableWindow;
 	int commandSize;
 	int windowExceeded = 0;
 	int windowWrap = 0;
@@ -3183,7 +3201,7 @@ int ENet_enet_protocol_send_reliable_outgoing_commands(ENet *self, ENetHost *hos
 		ENetProtocol *command;
 		outgoingCommand = self->p->vtbl->castToENetOutgoingCommand(self->p, &currentCommand->base);
 		channel = outgoingCommand->command->header->channelID < peer->channelCount ? peer->channels[outgoingCommand->command->header->channelID] : NULL;
-		reliableWindow = outgoingCommand->reliableSequenceNumber / 4096;
+		reliableWindow = self->p->vtbl->intToUshort(self->p, outgoingCommand->reliableSequenceNumber / 4096);
 		if (channel != NULL) {
 			if (windowWrap == 0 && outgoingCommand->sendAttempts < 1 && outgoingCommand->reliableSequenceNumber % 4096 == 0 && (channel->reliableWindows[(reliableWindow + 16 - 1) % 16] >= 4096 || (channel->usedReliableWindows & ((255 << reliableWindow) | (255 >> (4096 - reliableWindow)))) != 0))
 				windowWrap = 1;
@@ -3383,14 +3401,14 @@ void ENetChannel_Delete(ENetChannel *self)
 	free(self);
 }
 
-int ENetChannel_GetOutgoingReliableSequenceNumber(ENetChannel const *self)
+static void ENetChecksumCallback_Construct(ENetChecksumCallback *self, const ENetChecksumCallbackVtbl *vtbl)
 {
-	return self->outgoingReliableSequenceNumber;
+	self->vtbl = vtbl;
 }
 
-void ENetChannel_SetOutgoingReliableSequenceNumber(ENetChannel *self, int value)
+static void ENetCompressor_Construct(ENetCompressor *self, const ENetCompressorVtbl *vtbl)
 {
-	self->outgoingReliableSequenceNumber = value % 65536;
+	self->vtbl = vtbl;
 }
 
 ENetEvent *ENetEvent_New(void)
@@ -3460,6 +3478,11 @@ void ENetIncomingCommand_Delete(ENetIncomingCommand *self)
 ENetListNode const *ENetIncomingCommand_incomingCommandList(ENetIncomingCommand const *self)
 {
 	return &self->base;
+}
+
+static void ENetInterceptCallback_Construct(ENetInterceptCallback *self, const ENetInterceptCallbackVtbl *vtbl)
+{
+	self->vtbl = vtbl;
 }
 
 static void ENetList_Construct(ENetList *self)
@@ -3588,6 +3611,11 @@ void ENetPacket_SetUserData(ENetPacket *self, UserData const *value)
 	self->userData = value;
 }
 
+static void ENetPacketFreeCallback_Construct(ENetPacketFreeCallback *self, const ENetPacketFreeCallbackVtbl *vtbl)
+{
+	self->vtbl = vtbl;
+}
+
 static void ENetPeer_Construct(ENetPeer *self)
 {
 	ENetList_Construct(&self->base);
@@ -3613,19 +3641,14 @@ void ENetPeer_Delete(ENetPeer *self)
 	free(self);
 }
 
-int ENetPeer_GetOutgoingReliableSequenceNumber(ENetPeer const *self)
-{
-	return self->outgoingReliableSequenceNumber;
-}
-
-void ENetPeer_SetOutgoingReliableSequenceNumber(ENetPeer *self, int value)
-{
-	self->outgoingReliableSequenceNumber = value % 65536;
-}
-
 static ENetListNode const *ENetPeer_dispatchList(ENetPeer const *self)
 {
 	return &self->base.base;
+}
+
+static void ENetPlatform_Construct(ENetPlatform *self, const ENetPlatformVtbl *vtbl)
+{
+	self->vtbl = vtbl;
 }
 
 static void ENetProtocol_Construct(ENetProtocol *self)
@@ -3778,6 +3801,11 @@ void ENetProtocolVerifyConnect_Delete(ENetProtocolVerifyConnect *self)
 	free(self);
 }
 
+static void ENetSocket_Construct(ENetSocket *self, const ENetSocketVtbl *vtbl)
+{
+	self->vtbl = vtbl;
+}
+
 ENetSymbol *ENetSymbol_New(void)
 {
 	ENetSymbol *self = (ENetSymbol *) malloc(sizeof(ENetSymbol));
@@ -3796,8 +3824,4 @@ cibool Math_isLessThanUnsigned(int n1, int n2)
 		comp = !comp;
 	}
 	return comp;
-}
-
-void Test_f(Test const *self)
-{
 }

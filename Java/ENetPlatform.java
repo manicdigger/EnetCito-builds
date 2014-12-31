@@ -14,13 +14,15 @@ public abstract class ENetPlatform
 
 	public abstract ENetPeer castToENetPeer(ENetListNode a);
 
-	public abstract int eNET_HOST_TO_NET_16(int p);
+	public abstract ushort eNET_HOST_TO_NET_16(ushort p);
 
 	public abstract int eNET_HOST_TO_NET_32(int p);
 
-	public abstract int eNET_NET_TO_HOST_16(int p);
+	public abstract ushort eNET_NET_TO_HOST_16(ushort p);
 
 	public abstract int eNET_NET_TO_HOST_32(int fragmentOffset);
+
+	public abstract ushort intToUshort(int p);
 
 	public abstract int enet_address_set_host(ENetAddress address, String hostName);
 

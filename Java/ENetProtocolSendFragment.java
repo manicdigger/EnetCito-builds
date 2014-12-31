@@ -4,10 +4,10 @@ package enetcito.lib;
 public class ENetProtocolSendFragment
 {
 	public static final int SIZE_OF = 28;
-	int dataLength;
+	ushort dataLength;
 	int fragmentCount;
 	int fragmentNumber;
 	int fragmentOffset;
-	int startSequenceNumber;
+	ushort startSequenceNumber;
 	int totalLength;
 }
