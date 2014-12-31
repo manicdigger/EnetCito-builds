@@ -3699,6 +3699,14 @@ class Math
 	}
 }
 
+class Test
+{
+
+	final void f()
+	{
+	}
+}
+
 abstract class UserData
 {
 }

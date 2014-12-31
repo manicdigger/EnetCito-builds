@@ -5349,6 +5349,29 @@ sub is_less_than_unsigned($$) {
 	return $comp;
 }
 
+=head1 Class Test
+
+=cut
+
+package Test;
+
+=head2 C<$test = Test-E<gt>new()>
+
+=cut
+
+sub new($) {
+	my $self = bless {}, shift;
+	return $self;
+}
+
+=head2 C<$test-E<gt>f()>
+
+=cut
+
+sub f($) {
+	my ($self) = @_;
+}
+
 =head1 Class UserData
 
 =cut

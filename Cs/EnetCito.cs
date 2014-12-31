@@ -3656,6 +3656,14 @@ public class Math
 	}
 }
 
+public class Test
+{
+
+	public void f()
+	{
+	}
+}
+
 public abstract class UserData
 {
 }

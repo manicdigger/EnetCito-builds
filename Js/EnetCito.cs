@@ -3285,6 +3285,13 @@ Math.isLessThanUnsigned = function(n1, n2) {
 	return comp;
 }
 
+function Test()
+{
+}
+
+Test.prototype.f = function() {
+}
+
 function UserData()
 {
 }

@@ -1,13 +1,7 @@
-/* Generated automatically with "cito". Do not edit. */
+// Generated automatically with "cito". Do not edit.
 #ifndef _ENETCITO_H_
 #define _ENETCITO_H_
-typedef int cibool;
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
+#include <stdbool.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -722,7 +716,7 @@ void ENetProtocolVerifyConnect_Delete(ENetProtocolVerifyConnect *self);
 ENetSymbol *ENetSymbol_New(void);
 void ENetSymbol_Delete(ENetSymbol *self);
 
-cibool Math_isLessThanUnsigned(int n1, int n2);
+bool Math_isLessThanUnsigned(int n1, int n2);
 
 void Test_f(Test const *self);
 
